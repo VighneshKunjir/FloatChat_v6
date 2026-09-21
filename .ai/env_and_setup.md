@@ -41,17 +41,23 @@ npm install
 npm run lint
 ```
 
-### Step B: Setup Python ML Backend
+### Step B: Setup Python ML Backend & GPU Environment
 ```bash
 # 1. Create and activate virtual environment
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Install backend scientific & ML packages
+# 2. Install backend scientific & ML packages (PyTorch with CUDA support if applicable)
 pip install -r backend/requirements.txt
 
-# 3. Seed SQLite database with Arabian Sea floats
-python backend/scripts/seed_db.py --db-url "sqlite:///./backend/data/floatchat.db"
+# 3. Verify GPU acceleration status
+python -c "import torch; print('CUDA Available:', torch.cuda.is_available()); print('Device Name:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU Fallback')"
+
+# 4. Seed SQLite database from self-contained offline dataset (< 2 seconds)
+python backend/scripts/seed_db.py --seed-file backend/data/seed_reference_profiles.json --db-url "sqlite:///./backend/data/floatchat.db"
+
+# 5. (Optional) Run GPU-prioritized Bi-LSTM offline model training (< 30s on GPU)
+python backend/scripts/train_model.py
 ```
 
 ### Step C: Launch Development Services

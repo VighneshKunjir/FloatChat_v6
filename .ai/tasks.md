@@ -29,18 +29,18 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Files:* `backend/app/db/session.py`, `backend/alembic.ini`, `backend/alembic/`
   - *Description:* Configure SQLite default file engine (`sqlite:///./data/floatchat.db`) with fallback to `DATABASE_URL` environment variable.
   - *Acceptance Criteria:* `alembic upgrade head` generates all 4 tables in SQLite.
-- [ ] **TASK-103: Create Argo NetCDF Ingestion Script**
-  - *Files:* `backend/scripts/seed_db.py`
-  - *Description:* Write a script to fetch or parse reference NetCDF files from INCOIS/GDAC and insert the 5 Arabian Sea floats with their 440+ historical profile cycles and standardized 16 depth levels.
-  - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>7,000$ measurement rows; querying SQLite returns 5 floats.
+- [ ] **TASK-103: Create Self-Contained Argo Seeding Script**
+  - *Files:* `backend/scripts/seed_db.py`, `backend/data/seed_reference_profiles.json`
+  - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing all 440+ historical profile cycles and standardized 16 depth levels for the 5 Arabian Sea reference floats. (Ensures zero network/FTP failures).
+  - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>7,000$ measurement rows in $<2$ seconds; querying SQLite returns 5 floats.
 
 ---
 
 ## Phase 2: Core Physics Engine & Diagnostic Algorithms
-- [ ] **TASK-201: Implement TEOS-10 Thermodynamic Calculations**
+- [ ] **TASK-201: Implement TEOS-10 Thermodynamic Calculations with Fallback**
   - *Files:* `backend/app/core/physics.py`
-  - *Description:* Use the `gsw` Python library to calculate potential density $\sigma_\theta$, static gravitational stability $\partial\sigma_\theta / \partial z$, Brunt-Väisälä buoyancy frequency $N^2$, and Mixed Layer Depth (MLD).
-  - *Acceptance Criteria:* A profile with temperature $[28, 27, \dots, 7]$ and salinity $[36.5, 36.4, \dots, 35.2]$ returns `is_gravitationally_stable = True` and zero stability violations.
+  - *Description:* Implement potential density $\sigma_\theta$, static gravitational stability $\partial\sigma_\theta / \partial z$, Brunt-Väisälä buoyancy frequency $N^2$, and Mixed Layer Depth (MLD) using `gsw.sigma0` with an analytical NumPy polynomial fallback if `gsw` C-extensions are missing.
+  - *Acceptance Criteria:* A profile with temperature $[28, 27, \dots, 7]$ and salinity $[36.5, 36.4, \dots, 35.2]$ returns `is_gravitationally_stable = True` and zero stability violations under both `gsw` and fallback mode.
 - [ ] **TASK-202: Implement Evidence-Link Cosine Provenance Matcher**
   - *Files:* `backend/app/core/evidence.py`
   - *Description:* Implement composite similarity scoring combining vector cosine similarity ($75\%$) and Haversine spatial proximity ($25\%$) against the stored database of profiles.
@@ -51,16 +51,16 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ## Phase 3: Machine Learning Model & Training Pipeline
 - [ ] **TASK-301: Implement Physics-Informed Bi-LSTM PyTorch Model**
   - *Files:* `backend/app/ml/model.py`
-  - *Description:* Define the 2-layer Bi-LSTM with dropout ($p=0.2$) and dual linear projection heads for Temperature and Salinity.
+  - *Description:* Define the 2-layer Bi-LSTM with dropout ($p=0.2$) and dual linear projection heads for Temperature and Salinity. Implement automatic GPU (`cuda`/`mps`) device binding.
   - *Acceptance Criteria:* Forward pass on tensor of shape `(32, 3, 32)` outputs two tensors of shape `(32, 16)`.
 - [ ] **TASK-302: Implement Physics-Constrained Loss Function**
   - *Files:* `backend/app/ml/loss.py`
   - *Description:* Implement composite loss $\mathcal{L} = \text{MSE}(T) + 2.5\,\text{MSE}(S) + 10.0\,\mathcal{L}_{\text{stability}} + 1.5\,\mathcal{L}_{\text{therm}}$ as specified in `.ai/ml_spec.md`.
   - *Acceptance Criteria:* Backpropagation through a deliberate density inversion produces a positive loss penalty $\mathcal{L}_{\text{stability}} > 0$.
-- [ ] **TASK-303: Build Offline Training & Artifact Export Script**
+- [ ] **TASK-303: Build GPU-Prioritized Training & Artifact Export Script**
   - *Files:* `backend/scripts/train_model.py`
-  - *Description:* Train model on Arabian Sea float sequence splits, apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
-  - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ and artifacts are saved to disk.
+  - *Description:* Train model prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback on Arabian Sea float sequence splits, apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
+  - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ and artifacts are saved to disk in $<45$ seconds on GPU.
 
 ---
 
@@ -69,9 +69,9 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Files:* `backend/app/core/uq.py`
   - *Description:* Execute 50 forward passes with active dropout; calculate mean, standard deviation, 90% CI, and 95% CI per depth level.
   - *Acceptance Criteria:* Returns `UncertaintyBound[]` array where upper CI is strictly greater than mean, and thermocline depth exhibits higher variance than abyssal 1000m.
-- [ ] **TASK-402: Implement Captum Integrated Gradients Attribution**
+- [ ] **TASK-402: Implement Captum Integrated Gradients Attribution with Target Wrapper**
   - *Files:* `backend/app/ml/xai.py`
-  - *Description:* Compute path-integrated gradients to quantify temporal weights across $t-3, t-2, t-1$ and cross-depth saliency matrix.
+  - *Description:* Implement `SingleOutputModelWrapper` and compute path-integrated gradients to quantify temporal weights across $t-3, t-2, t-1$ and cross-depth saliency matrix without multi-output crashes.
   - *Acceptance Criteria:* Sum of temporal attribution importance scores equals $1.00 \pm 0.01$.
 
 ---
@@ -87,16 +87,21 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Acceptance Criteria:* `curl http://localhost:8000/api/floats` returns JSON array with 5 floats.
 - [ ] **TASK-503: Implement Forecasting & Inference Endpoint**
   - *Files:* `backend/app/api/forecast.py`
-  - *Description:* Wire preprocessor, PyTorch LSTM inference, MC Dropout UQ, TEOS-10 validator, Captum XAI, and Evidence-Link matcher into `POST /api/forecast`.
-  - *Acceptance Criteria:* `POST /api/forecast` returns a complete `ForecastResult` payload in $<350\text{ ms}$.
+  - *Description:* Wire preprocessor, PyTorch LSTM inference, MC Dropout UQ, TEOS-10 validator, Captum XAI, and Evidence-Link matcher into `POST /api/forecast`. Persist forecast result into `forecast_logs` table.
+  - *Acceptance Criteria:* `POST /api/forecast` returns a complete `ForecastResult` payload in $<350\text{ ms}$ and writes record to `forecast_logs`.
 - [ ] **TASK-504: Implement Conversational RAG Endpoint**
   - *Files:* `backend/app/api/chat.py`
   - *Description:* Implement `POST /api/chat` with Gemini 2.5/3.8 Flash SDK call and automatic offline analytical synthesis fallback.
   - *Acceptance Criteria:* Submitting a prompt yields grounded oceanographic text citing the active WMO ID and NetCDF files with LaTeX formulas.
+- [ ] **TASK-505: Implement History Audit & JSON Export Endpoints**
+  - *Files:* `backend/app/api/forecast.py`
+  - *Description:* Implement `GET /api/history` returning recent forecast logs, and `GET /api/forecast/{id}/export-json` streaming the exact forecast payload as an attachment.
+  - *Acceptance Criteria:* `curl http://localhost:8000/api/history` returns logged forecasts; export endpoint sets `Content-Disposition: attachment`.
 
 ---
 
 ## Phase 6: Frontend Integration & Mock Retirement
+*(GATE: Phase 6 MUST NOT begin until all Phase 1–5 backend endpoints pass pytest)*
 - [ ] **TASK-601: Implement Frontend API Service Layer**
   - *Files:* `src/services/api.ts`
   - *Description:* Create clean, strongly typed API client module matching `.ai/integration_map.md`.

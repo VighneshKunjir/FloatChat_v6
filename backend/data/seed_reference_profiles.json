@@ -1,0 +1,52 @@
+{
+  "dataset_metadata": {
+    "title": "FloatChat Arabian Sea Embedded Reference Profiles",
+    "description": "Historical profiles across standard 16 pressure levels (5 to 1000 dbar) for operational Arabian Sea Argo profiling floats.",
+    "standard_depths_dbar": [5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000],
+    "region": "Arabian Sea (Northern Indian Ocean)",
+    "physics_standard": "TEOS-10 (GSW / UNESCO 1983)",
+    "generated_for_offline_development": true
+  },
+  "floats": [
+    {
+      "wmo_id": "3902114",
+      "platform_name": "Float 3902114 (Northern Arabian Sea / Gulf of Oman)",
+      "platform_type": "PROVOR_CTS4",
+      "base_lat": 20.45,
+      "base_lon": 62.15,
+      "base_sst": 28.8,
+      "base_sss": 36.45,
+      "cycles": [85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
+    },
+    {
+      "wmo_id": "2903334",
+      "platform_name": "Float 2903334 (Central Arabian Sea Basin)",
+      "platform_type": "APEX_SBE41",
+      "base_lat": 15.20,
+      "base_lon": 65.80,
+      "base_sst": 29.4,
+      "base_sss": 36.15,
+      "cycles": [120, 121, 122, 123, 124, 125, 126, 127, 128]
+    },
+    {
+      "wmo_id": "1902442",
+      "platform_name": "Float 1902442 (Eastern Arabian Sea / Indian West Shelf)",
+      "platform_type": "NAVIS_EBR",
+      "base_lat": 13.80,
+      "base_lon": 71.40,
+      "base_sst": 29.8,
+      "base_sss": 35.85,
+      "cycles": [64, 65, 66, 67, 68, 69, 70, 71]
+    },
+    {
+      "wmo_id": "2902789",
+      "platform_name": "Float 2902789 (Southwestern Upwelling Corridor)",
+      "platform_type": "APEX_SBE41",
+      "base_lat": 10.10,
+      "base_lon": 58.50,
+      "base_sst": 27.2,
+      "base_sss": 35.95,
+      "cycles": [150, 151, 152, 153, 154, 155, 156]
+    }
+  ]
+}

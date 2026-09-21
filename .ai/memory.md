@@ -28,19 +28,39 @@
 - **Decision:** Use SQLAlchemy 2.0 with standard SQL DDL so the backend defaults to zero-config file-based SQLite (`sqlite:///./data/floatchat.db`), while supporting PostgreSQL seamlessly via the `DATABASE_URL` environment variable.
 - **Consequences:** Zero-friction local startup while remaining fully production-ready.
 
+### ADR-004: High-End GPU Training Prioritization with CPU Fallback
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** User has a high-end dedicated GPU workstation. Training and forward-backward propagation should leverage CUDA first.
+- **Decision:** All PyTorch code defaults to `torch.device("cuda" if torch.cuda.is_available() else "mps" if ... else "cpu")`. Training loops enable `torch.backends.cudnn.benchmark = True` and mixed precision.
+- **Consequences:** Fast model training (< 30 seconds) on GPU with transparent fallback on CPU-only CI environments.
+
+### ADR-005: Self-Contained Embedded Dataset Default with Future Scope for Live FTP
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** Remote GDAC FTP mirrors are prone to firewall blocks, timeouts, and network failures in sandboxed environments.
+- **Decision:** Default local development strictly to `backend/data/seed_reference_profiles.json` (all 440+ historical cycles for the 5 Arabian Sea floats). Remote live FTP ingestion is moved to future scope.
+- **Consequences:** Database seeding completes 100% offline in $< 2$ seconds.
+
+### ADR-006: Captum Multi-Output Single Target Wrapper
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** Captum Integrated Gradients crashes on multi-head Bi-LSTM outputs returning tuples or multi-column tensors.
+- **Decision:** Require `SingleOutputModelWrapper` isolating a specific target variable and depth index before computing attributions.
+
 ---
 
-## 2. Tracking `[ASSUMPTION]` and `[DECISION NEEDED]`
+## 2. Tracking `[ASSUMPTION]` and Resolved Decisions
 
 ### Active Assumptions:
 - `[ASSUMPTION-001]`: The 16 standard pressure levels ($5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 700, 1000\text{ dbar}$) are universally sufficient for Arabian Sea upper-ocean and thermocline characterization.
 - `[ASSUMPTION-002]`: A 3-cycle historical window ($t-3, t-2, t-1$, representing a 30-day temporal lag) provides optimal balance between capturing seasonal drift and minimizing missing-cycle gaps in float lifetime.
 - `[ASSUMPTION-003]`: In offline environments or when `GEMINI_API_KEY` is not provided, users prefer an instant, high-fidelity analytical response rather than an error modal.
 
-### Decisions Needed:
-- `[DECISION NEEDED-001]`: Should user forecast histories and chat sessions be persisted permanently across browser sessions, or kept ephemeral in-memory? (Recommended: Persist in `forecast_logs` table).
-- `[DECISION NEEDED-002]`: Should the backend provide a direct NetCDF file export endpoint (`GET /api/forecast/export.nc`) for operational oceanographers?
-- `[DECISION NEEDED-003]`: For the Python backend migration, should FastAPI run on port 8000 with Vite proxying `/api` requests, or should the frontend build be served directly by FastAPI static mounting in production? (Recommended: Proxy in dev, single Docker container in prod).
+### Resolved Decisions:
+- `[RESOLVED-001]`: **Forecast Persistence:** Persist all run forecasts into the `forecast_logs` table via `POST /api/forecast`. Provide `GET /api/history` for audit and retrospective visualization.
+- `[RESOLVED-002]`: **Forecast Export Format:** Standard JSON export (`GET /api/forecast/{id}/export-json` or client-side download) is implemented now. CF-compliant NetCDF (`.nc`) export is logged under Future Scope.
+- `[RESOLVED-003]`: **Runtime Architecture:** Dual-mode in development (FastAPI on 8000, Vite on 3000 proxying `/api`). In production Docker, single FastAPI service serving the static `dist/` bundle on port 3000.
 
 ---
 

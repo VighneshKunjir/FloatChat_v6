@@ -27,12 +27,20 @@
 
 ## 3. Machine Learning & Scientific Physics Rules
 
-1. **Physical Stability Constraint:** Every forecasted profile MUST be validated against the TEOS-10 potential density criterion:
+1. **Hardware & Compute Execution:** All PyTorch operations MUST prioritize high-end GPU compute (`cuda` if available, `mps` if on Apple Silicon, with `cpu` strictly as fallback):
+   ```python
+   device = torch.device("cuda" if torch.cuda.is_available() else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() else "cpu")
+   ```
+2. **TEOS-10 Thermodynamics & Fallback Resilience:** Calculate potential density $\sigma_\theta$ and static stability using `gsw.sigma0`. If `gsw` C-extensions fail to load on any platform, code MUST gracefully fallback to the pure NumPy UNESCO/TEOS-10 polynomial approximation:
+   $$\sigma_\theta \approx 28.14 - 0.0735\,T - 0.00469\,T^2 + 0.802\,(S - 35.0)$$
+   (Never crash on import error).
+3. **Captum Attribution Multi-Output Wrapping:** Multi-head PyTorch models returning `(T, S)` tuples MUST be wrapped with `SingleOutputModelWrapper` targeting a specific variable and depth index before calling Captum `IntegratedGradients`.
+4. **Physical Stability Constraint:** Every forecasted profile MUST be validated against the TEOS-10 potential density criterion:
    $$\frac{\partial \sigma_\theta}{\partial z} \ge 0$$
    If an inference pass violates this condition, it must be flagged with `is_gravitationally_stable = False` and the exact violation count recorded.
-2. **Reproducibility & Random Seeds:** All stochastic operations (Monte Carlo dropout, train/val/test splits, baseline seeds) must use a fixed seed (`seed = 42`).
-3. **No Data Leakage:** When splitting Argo float profiles into training, validation, and test sets, splits must be performed at the **Float Platform Level (WMO ID)** or temporally (historical cycles $1 \dots N-10$ for training, last 10 cycles for testing). Never mix cycles from the same float across train and test without temporal partitioning.
-4. **Inference Latency Limit:** Inference, uncertainty calculation (50 passes), and XAI attribution must complete in under **350 ms** on modern CPU hardware. Never run training or parameter optimization inside request handlers.
+5. **Reproducibility & Random Seeds:** All stochastic operations (Monte Carlo dropout, train/val/test splits, baseline seeds) must use a fixed seed (`seed = 42`).
+6. **No Data Leakage:** When splitting Argo float profiles into training, validation, and test sets, splits must be performed at the **Float Platform Level (WMO ID)** or temporally (historical cycles $1 \dots N-10$ for training, last 10 cycles for testing). Never mix cycles from the same float across train and test without temporal partitioning.
+7. **Inference Latency Limit:** Inference, uncertainty calculation (50 passes), and XAI attribution must complete in under **350 ms** on CPU/GPU. Never run training or parameter optimization inside request handlers.
 
 ---
 
@@ -76,3 +84,6 @@
 - **DO NOT** replace KaTeX math rendering with plain text approximations (e.g., never write "d(sigma)/dz >= 0" if LaTeX $\frac{\partial \sigma_\theta}{\partial z} \ge 0$ is expected).
 - **DO NOT** generate unsolicited UI tabs, marketing banners, or navigation bars.
 - **DO NOT** remove the NetCDF provenance metadata or quality control flags from the forecast result schema.
+- **DO NOT** depend on external GDAC FTP connections during automated testing or seeding; always use the self-contained `seed_reference_profiles.json` dataset.
+- **DO NOT** modify frontend components in `src/` until Phase 1–5 backend endpoints pass unit tests (`pytest`).
+- **DO NOT** call Captum `IntegratedGradients` directly on a multi-head model without the `SingleOutputModelWrapper`.

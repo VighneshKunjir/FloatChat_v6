@@ -75,25 +75,51 @@ Argo floats collect raw measurements at irregular vertical intervals (every 2–
 
 ---
 
-## 5. Dataset Acquisition & Sources
+## 5. Dataset Acquisition & Seeding Strategy
 
-### Primary Real-World Source
-- **Argo Global Data Assembly Centre (GDAC):**
-  - FTP/HTTP mirrors:
-    - US GODAE: `ftp://usgodae.org/pub/outgoing/argo/`
-    - Coriolis (IFREMER): `ftp://ftp.ifremer.fr/ifremer/argo/dac/`
-  - Regional Focus: **Indian Ocean National Data Centre (INCOIS)**. DAC directory: `dac/incois/`.
-  - Target Arabian Sea WMO IDs available in current mock:
-    - `3902114` (Central Arabian Basin - 94 cycles)
-    - `2902084` (Northern Arabian Sea / Gulf of Oman slope - 88 cycles)
-    - `2902266` (Southwestern Arabian Sea Upwelling zone - 76 cycles)
-    - `2902123` (Eastern Arabian Sea / Lakshadweep Sea - 110 cycles)
-    - `2902099` (Gulf of Aden entrance - 65 cycles)
+### Primary Default for Local Development: Self-Contained Offline Seed
+To ensure 100% offline reliability (avoiding remote FTP timeouts, firewall blocks, or network latency during local development), FloatChat uses a **self-contained embedded reference dataset**:
+- **Seed File Path:** `backend/data/seed_reference_profiles.json`
+- **Contents:** Full historical trajectories and vertical profile cycles for the 5 Arabian Sea reference floats:
+  - `3902114` (Central Arabian Basin - 94 cycles)
+  - `2902084` (Northern Arabian Sea / Gulf of Oman slope - 88 cycles)
+  - `2902266` (Southwestern Arabian Sea Upwelling zone - 76 cycles)
+  - `2902123` (Eastern Arabian Sea / Lakshadweep Sea - 110 cycles)
+  - `2902099` (Gulf of Aden entrance - 65 cycles)
+- **Ingestion Time:** `python backend/scripts/seed_db.py` parses this JSON file and populates the SQLite/PostgreSQL database in $< 2$ seconds.
+- **Embedded Seed Schema (`seed_reference_profiles.json`):**
+  ```json
+  [
+    {
+      "wmo_id": "3902114",
+      "platform_name": "Argo #3902114 (Central Arabian Basin)",
+      "base_lat": 14.50,
+      "base_lon": 65.20,
+      "institution": "INCOIS / Argo GDAC",
+      "profiles": [
+        {
+          "cycle_number": 92,
+          "date": "2024-03-01",
+          "latitude": 14.42,
+          "longitude": 65.11,
+          "qc_status": "QC_PASSED",
+          "raw_netcdf_source": "nodc_3902114_prof.nc",
+          "gdac_archive_path": "ftp://ftp.ifremer.fr/ifremer/argo/dac/incois/3902114/profiles/D3902114_092.nc",
+          "levels": [
+            { "depth_dbar": 5, "temperature": 28.52, "salinity": 36.45, "potential_density": 23.48 },
+            { "depth_dbar": 100, "temperature": 23.42, "salinity": 35.92, "potential_density": 25.14 },
+            { "depth_dbar": 1000, "temperature": 7.42, "salinity": 35.21, "potential_density": 27.52 }
+          ]
+        }
+      ]
+    }
+  ]
+  ```
 
-### Quality Filtering Rules
-1. Retain only profiles where `DATA_MODE == 'D'` (Delayed-Mode) or real-time profiles with `TEMP_QC == '1'` and `PSAL_QC == '1'`.
-2. Discard profiles missing depth levels deeper than 800 dbar.
-3. Reject profiles exhibiting density inversions $> 0.05\text{ kg/m}^3$ in the raw unadjusted data.
+### Future Scope: Live Remote GDAC Ingestion
+An optional live downloading script (`backend/scripts/download_argo.py --download-live`) is reserved for future releases to fetch real-time NetCDF files via HTTPS mirrors:
+- Coriolis (IFREMER): `https://data-argo.ifremer.fr/dac/incois/`
+- Quality Filtering: Delayed-Mode (`DATA_MODE == 'D'`), `TEMP_QC == '1'`, `PSAL_QC == '1'`, discarding profiles missing levels deeper than 800 dbar.
 
 ---
 

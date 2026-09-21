@@ -31,12 +31,28 @@ Where:
 
 ## 3. Training & Evaluation Protocol
 
+### Hardware & Compute Prioritization
+- **Target Device:** **High-End GPU Prioritized** (`cuda` for NVIDIA GPUs, `mps` for Apple Silicon, with `cpu` strictly as fallback):
+  ```python
+  import torch
+  device = torch.device(
+      "cuda" if torch.cuda.is_available() 
+      else "mps" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() 
+      else "cpu"
+  )
+  print(f"[FloatChat ML] Using compute device: {device}")
+  if device.type == "cuda":
+      print(f"[FloatChat ML] GPU Model: {torch.cuda.get_device_name(0)}")
+      torch.backends.cudnn.benchmark = True
+  ```
+- **Mixed Precision:** In GPU mode, training script supports `torch.cuda.amp.autocast()` for acceleration.
+
 ### Hyperparameters
 - **Optimizer:** AdamW (`lr=1e-3`, `weight_decay=1e-4`).
 - **Learning Rate Scheduler:** Cosine Annealing with Warmup (`T_max=100`, `eta_min=1e-6`).
-- **Batch Size:** 32 sequences.
-- **Epochs:** 120 (with early stopping patience of 15 epochs on validation RMSE).
-- **Seed:** 42.
+- **Batch Size:** 32 on GPU (16 on CPU fallback).
+- **Epochs:** 60–120 (with early stopping patience of 15 epochs on validation RMSE). On GPU, training completes in ~15–30 seconds.
+- **Seed:** Fixed seed 42 for reproducibility.
 
 ### Acceptance Thresholds ("Good Enough" for Production)
 | Metric | Baseline (Persistence $t-1$) | Gradient Boosting | Required Model Performance |
@@ -65,8 +81,33 @@ Where:
 
 ### 1. Temporal Saliency via Integrated Gradients (Captum)
 - **Baseline:** Zero-tensor or climatological seasonal mean profile.
-- **Method:** Path integral of gradients along the straight line from baseline $\mathbf{X}_0$ to input $\mathbf{X}$:
-  $$\text{IG}_i(\mathbf{X}) = (X_i - X_{0,i}) \times \int_{0}^1 \frac{\partial F(\mathbf{X}_0 + \alpha(\mathbf{X} - \mathbf{X}_0))}{\partial X_i} d\alpha$$
+- **Captum Multi-Output Wrapper (MANDATORY PATTERN):**
+  The Bi-LSTM model outputs both Temperature and Salinity vectors. Because Captum's `IntegratedGradients` requires a scalar or single tensor output, models MUST be wrapped with `SingleOutputModelWrapper` before calling `.attribute()`:
+  ```python
+  import torch
+  import torch.nn as nn
+  from captum.attr import IntegratedGradients
+
+  class SingleOutputModelWrapper(nn.Module):
+      """Wraps multi-head LSTM so Captum can attribute gradients to a specific target depth."""
+      def __init__(self, base_model: nn.Module, target_variable: str = "temp", target_depth_idx: int = 6):
+          super().__init__()
+          self.base_model = base_model
+          self.target_variable = target_variable # "temp" or "sal"
+          self.target_depth_idx = target_depth_idx # default 6 is 100 dbar (thermocline)
+
+      def forward(self, x: torch.Tensor) -> torch.Tensor:
+          temp_out, sal_out = self.base_model(x)
+          selected = temp_out if self.target_variable == "temp" else sal_out
+          # Returns shape (batch_size, 1) target prediction
+          return selected[:, self.target_depth_idx:self.target_depth_idx + 1]
+
+  # Usage in XAI Service:
+  wrapper = SingleOutputModelWrapper(model, target_variable="temp", target_depth_idx=6)
+  ig = IntegratedGradients(wrapper)
+  attributions, delta = ig.attribute(input_tensor, baseline_tensor, return_convergence_delta=True)
+  # attributions shape: (1, 3, 32) -> aggregate across feature dimensions per cycle
+  ```
 - **Aggregation:** Saliency weights are summed across feature dimensions for each cycle offset ($t-3, t-2, t-1$) and normalized so $\sum w_i = 1.0$.
 
 ### 2. Cross-Depth Saliency Matrix
