@@ -25,7 +25,7 @@ Where:
    $$\mathcal{L}_{\text{stability}} = \sum_{i=1}^{15} \max\left(0, - \frac{\hat{\sigma}_\theta(z_{i+1}) - \hat{\sigma}_\theta(z_i)}{z_{i+1} - z_i}\right)$$
    Penalizes any instance where density decreases with depth ($\lambda_{\text{phys}} = 10.0$).
 4. **Thermocline Gradient Loss:**
-   $$\mathcal{L}_{\text{therm}} = \left| \left(\frac{T_{75} - T_{125}}{50}\right) - \left(\frac{\hat{T}_{75} - \hat{T}_{125}}{50}\right) \right|^2 \quad (\lambda_{\text{therm}} = 1.5)$$
+   $$\mathcal{L}_{\text{therm}} = \left| \left(\frac{T_{75} - T_{150}}{75}\right) - \left(\frac{\hat{T}_{75} - \hat{T}_{150}}{75}\right) \right|^2 \quad (\lambda_{\text{therm}} = 1.5)$$
 
 ---
 

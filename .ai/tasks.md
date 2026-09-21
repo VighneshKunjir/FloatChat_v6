@@ -31,8 +31,8 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Acceptance Criteria:* `alembic upgrade head` generates all 4 tables in SQLite.
 - [ ] **TASK-103: Create Self-Contained Argo Seeding Script**
   - *Files:* `backend/scripts/seed_db.py`, `backend/data/seed_reference_profiles.json`
-  - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing all 440+ historical profile cycles and standardized 16 depth levels for the 5 Arabian Sea reference floats. (Ensures zero network/FTP failures).
-  - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>7,000$ measurement rows in $<2$ seconds; querying SQLite returns 5 floats.
+  - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing all historical profile cycles and standardized 16 depth levels for the 4 operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`). (Ensures zero network/FTP failures).
+  - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>500$ level measurement rows in $<2$ seconds; querying SQLite returns 4 floats.
 
 ---
 

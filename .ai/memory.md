@@ -48,12 +48,19 @@
 - **Context:** Captum Integrated Gradients crashes on multi-head Bi-LSTM outputs returning tuples or multi-column tensors.
 - **Decision:** Require `SingleOutputModelWrapper` isolating a specific target variable and depth index before computing attributions.
 
+### ADR-007: Dual-Runtime Compatibility & Pydantic Request Alias Handling
+- **Date:** 2026-09-21
+- **Status:** Accepted
+- **Context:** The frontend React components (`src/App.tsx`, `src/components/ChatPanel.tsx`) submit payload parameters in camelCase (`wmoId`, `cycle`), while standard Python conventions use snake_case (`wmo_id`, `cycle_number`). Furthermore, AI Studio enforces Port 3000 as the sole reverse proxy port.
+- **Decision:** All FastAPI Pydantic request models must enable `populate_by_name=True` with explicit aliases (e.g., `Field(alias="wmoId")` and `Field(alias="cycle")`) to accept both conventions seamlessly. The dev environment routes requests through Port 3000 to maintain uninterrupted live preview.
+- **Consequences:** Eliminates 422 Unprocessable Entity runtime errors when switching between frontend mock server and real Python FastAPI backend.
+
 ---
 
 ## 2. Tracking `[ASSUMPTION]` and Resolved Decisions
 
 ### Active Assumptions:
-- `[ASSUMPTION-001]`: The 16 standard pressure levels ($5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 700, 1000\text{ dbar}$) are universally sufficient for Arabian Sea upper-ocean and thermocline characterization.
+- `[ASSUMPTION-001]`: The 16 canonical standard pressure levels ($5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000\text{ dbar}$) are universally sufficient for Arabian Sea upper-ocean and thermocline characterization, matching the operational frontend visualization and deep abyssal layer.
 - `[ASSUMPTION-002]`: A 3-cycle historical window ($t-3, t-2, t-1$, representing a 30-day temporal lag) provides optimal balance between capturing seasonal drift and minimizing missing-cycle gaps in float lifetime.
 - `[ASSUMPTION-003]`: In offline environments or when `GEMINI_API_KEY` is not provided, users prefer an instant, high-fidelity analytical response rather than an error modal.
 

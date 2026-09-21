@@ -12,25 +12,25 @@
 ---
 
 ## 2. Standardized Vertical Discretization Grid
-Argo floats collect raw measurements at irregular vertical intervals (every 2–10 dbar in the upper water column and 20–50 dbar at depth). For machine learning input and visualization, all profiles are mapped onto the **16 Standard Oceanographic Depths (dbar)** used throughout the FloatChat frontend:
+Argo floats collect raw measurements at irregular vertical intervals (every 2–10 dbar in the upper water column and 20–50 dbar at depth). For machine learning input and visualization, all profiles are mapped onto the **16 Standard Oceanographic Depths (dbar)** used throughout the FloatChat frontend and server:
 
 | Index | Pressure / Depth (`depth_dbar`) | Oceanographic Layer Classification | Physical Characteristics |
 | :---: | :---: | :--- | :--- |
 | **0** | `5` | Surface Mixed Layer | Direct atmospheric air-sea heat flux & wind forcing |
-| **1** | `10` | Surface Mixed Layer | Diurnal warming layer |
-| **2** | `20` | Surface Mixed Layer | Upper isothermal layer |
-| **3** | `30` | Surface Mixed Layer | Wind-stirred mixed layer base in summer |
-| **4** | `50` | Upper Thermocline / Barrier Layer | Seasonal pycnocline initiation |
-| **5** | `75` | Main Thermocline | Rapid temperature drop; high acoustic sound velocity gradient |
-| **6** | `100` | Main Thermocline Core | Maximum vertical temperature gradient $\|dT/dz\|$ |
-| **7** | `125` | Lower Thermocline | Subsurface salinity maximum inflection |
-| **8** | `150` | Subsurface Haline Core | Arabian Sea High Salinity Water (ASHSW) / Red Sea outflow |
-| **9** | `200` | Subsurface Transition | Base of seasonal wind-driven gyre |
-| **10** | `250` | Intermediate Waters | Persian Gulf Water (PGW) intrusion layer |
-| **11** | `300` | Intermediate Waters | Oxygen Minimum Zone (OMZ) core |
-| **12** | `400` | Deep Thermocline | Permanent oceanic thermocline base |
-| **13** | `500` | Deep Intermediate Water | Slow baroclinic geostrophic flow |
-| **14** | `700` | Deep Intermediate Water | Low high-frequency turbulence |
+| **1** | `20` | Surface Mixed Layer | Upper isothermal layer & momentum boundary |
+| **2** | `50` | Upper Thermocline | Seasonal pycnocline initiation |
+| **3** | `75` | Main Thermocline | Rapid temperature drop; high acoustic sound velocity gradient |
+| **4** | `100` | Main Thermocline Core | Maximum vertical temperature gradient $|dT/dz|$ |
+| **5** | `150` | Subsurface Haline Core | Arabian Sea High Salinity Water (ASHSW) / Red Sea outflow |
+| **6** | `200` | Subsurface Transition | Base of seasonal wind-driven gyre |
+| **7** | `250` | Intermediate Waters | Persian Gulf Water (PGW) intrusion layer |
+| **8** | `300` | Intermediate Waters | Oxygen Minimum Zone (OMZ) core |
+| **9** | `400` | Deep Thermocline | Permanent oceanic thermocline base |
+| **10** | `500` | Deep Intermediate Water | Slow baroclinic geostrophic flow |
+| **11** | `600` | Deep Intermediate Water | Low high-frequency turbulence |
+| **12** | `700` | Lower Mesopelagic | Stable intermediate salinity boundary |
+| **13** | `800` | Bathypelagic Transition | Quasi-homogeneous cold deep ocean water |
+| **14** | `900` | Bathypelagic Core | Abyssal thermal consistency |
 | **15** | `1000` | Abyssal Parking Depth | Argo parking depth; cold, stable, high hydrostatic pressure |
 
 ---
@@ -80,12 +80,11 @@ Argo floats collect raw measurements at irregular vertical intervals (every 2–
 ### Primary Default for Local Development: Self-Contained Offline Seed
 To ensure 100% offline reliability (avoiding remote FTP timeouts, firewall blocks, or network latency during local development), FloatChat uses a **self-contained embedded reference dataset**:
 - **Seed File Path:** `backend/data/seed_reference_profiles.json`
-- **Contents:** Full historical trajectories and vertical profile cycles for the 5 Arabian Sea reference floats:
-  - `3902114` (Central Arabian Basin - 94 cycles)
-  - `2902084` (Northern Arabian Sea / Gulf of Oman slope - 88 cycles)
-  - `2902266` (Southwestern Arabian Sea Upwelling zone - 76 cycles)
-  - `2902123` (Eastern Arabian Sea / Lakshadweep Sea - 110 cycles)
-  - `2902099` (Gulf of Aden entrance - 65 cycles)
+- **Contents:** Full historical trajectories and vertical profile cycles for the 4 operational Arabian Sea reference floats:
+  - `3902114` (Northern Arabian Sea / Gulf of Oman - 11 cycles [85–95], default 94)
+  - `2903334` (Central Arabian Sea Basin - 9 cycles [120–128], default 127)
+  - `1902442` (Eastern Arabian Sea / Indian West Shelf - 8 cycles [64–71], default 70)
+  - `2902789` (Southwestern Upwelling Corridor - 7 cycles [150–156], default 155)
 - **Ingestion Time:** `python backend/scripts/seed_db.py` parses this JSON file and populates the SQLite/PostgreSQL database in $< 2$ seconds.
 - **Embedded Seed Schema (`seed_reference_profiles.json`):**
   ```json
