@@ -39,7 +39,7 @@
 - **Date:** 2026-09-21
 - **Status:** Accepted
 - **Context:** Remote GDAC FTP mirrors are prone to firewall blocks, timeouts, and network failures in sandboxed environments.
-- **Decision:** Default local development strictly to `backend/data/seed_reference_profiles.json` (all 440+ historical cycles for the 5 Arabian Sea floats). Remote live FTP ingestion is moved to future scope.
+- **Decision:** Default local development database seeding strictly to `backend/data/seed_reference_profiles.json` (35 historical cycles across the 4 operational Arabian Sea reference floats: 3902114, 2903334, 1902442, 2902789).
 - **Consequences:** Database seeding completes 100% offline in $< 2$ seconds.
 
 ### ADR-006: Captum Multi-Output Single Target Wrapper
@@ -54,6 +54,13 @@
 - **Context:** The frontend React components (`src/App.tsx`, `src/components/ChatPanel.tsx`) submit payload parameters in camelCase (`wmoId`, `cycle`), while standard Python conventions use snake_case (`wmo_id`, `cycle_number`). Furthermore, AI Studio enforces Port 3000 as the sole reverse proxy port.
 - **Decision:** All FastAPI Pydantic request models must enable `populate_by_name=True` with explicit aliases (e.g., `Field(alias="wmoId")` and `Field(alias="cycle")`) to accept both conventions seamlessly. The dev environment routes requests through Port 3000 to maintain uninterrupted live preview.
 - **Consequences:** Eliminates 422 Unprocessable Entity runtime errors when switching between frontend mock server and real Python FastAPI backend.
+
+### ADR-008: 30-Float 4-Year NetCDF Pipeline for Operational Model Scaling
+- **Date:** 2026-09-22
+- **Status:** Accepted
+- **Context:** While the 4-float seed dataset is ideal for instant automated testing and offline development, training deep sequence models requires statistical diversity across seasonal monsoonal cycles and broader Arabian Sea hydrography.
+- **Decision:** Implement `backend/scripts/download_argo.py` to ingest 4-year NetCDF data for 30 operational Arabian Sea floats, clean fill values and unphysical outliers, filter by QC flags (1/2), and interpolate to the canonical 16-level depth grid. Export as a unified wide-format CSV (`backend/data/processed/argo_30floats_canonical.csv`) with one row per profile.
+- **Consequences:** Provides a scalable, high-volume training corpus for the PyTorch Bi-LSTM and Gradient Boosting baselines while preserving fast offline testing with `seed_reference_profiles.json`.
 
 ---
 

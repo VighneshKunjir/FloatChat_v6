@@ -47,7 +47,7 @@ FloatChat solves this by binding physics validation, attribution saliency, and N
 
 | Feature Name | Component / View | Description | Priority |
 | :--- | :--- | :--- | :--- |
-| **Float & Cycle Selection** | `ControlBar.tsx` | Select active float (e.g. WMO 3902114, 2902084, etc.) and cycle number with automated defaults. | **MVP** |
+| **Float & Cycle Selection** | `ControlBar.tsx` | Select active float (e.g. WMO 3902114, 2903334, etc.) and cycle number with automated defaults. | **MVP** |
 | **Variable View Toggle** | `ControlBar.tsx` | Switch between Temperature view, Salinity view, or dual synchronized curves. | **MVP** |
 | **Profile Forecast Chart** | `ProfilePlot.tsx` | SVG/Canvas dual-profile visualization comparing Forecast vs Persistence ($t-1$) vs Gradient Boosting with 95% CI bands. | **MVP** |
 | **Live Prediction Readout** | `ProfilePlot.tsx` | Real-time card updating on graph hover: exact $T(z)$, $S(z)$, $\sigma_\theta$, layer name, and 95% CI bounds. | **MVP** |
@@ -57,8 +57,8 @@ FloatChat solves this by binding physics validation, attribution saliency, and N
 | **Hydrographic Sea Map** | `TrajectoryMap.tsx` | Arabian Sea map showing drift tracks (cycles $t-4$ to $t+1$), bathymetry, SST, salinity cores, and telemetry HUD. | **MVP** |
 | **XAI & Physics Diagnostics** | `XaiDiagnostics.tsx` | Visualizes temporal saliency bar charts, depth attribution matrix, Brunt-Väisälä buoyancy profile, and MLD. | **MVP** |
 | **Model Benchmarks** | `EvaluationBenchmarks.tsx` | Compares FloatChat LSTM vs Gradient Boosting vs Persistence across RMSE, MAE, and physical violation rates. | **MVP** |
-| **User Prediction History** | *New Backend Table* | Persists user-run forecasts and chat sessions for historical audit and retrospective analysis. | **Later** |
-| **NetCDF File Downloader** | *New API Endpoint* | Direct export of forecasted profile as standard CF-compliant NetCDF-4 (`.nc`). | **Later** |
+| **User Prediction History** | `backend/app/api/forecast.py` | Persists user-run forecasts and predictions in `forecast_logs` table (`/api/history`). | **Phase 5** |
+| **JSON Export Endpoint** | `backend/app/api/forecast.py` | Direct export of forecasted profile as standard JSON (`/api/forecast/{id}/export-json`). CF-compliant NetCDF deferred to future scope. | **Phase 5** |
 
 ---
 
@@ -66,7 +66,7 @@ FloatChat solves this by binding physics validation, attribution saliency, and N
 
 ### Flow 1: Profile Forecasting & Depth Interrogation
 1. User loads FloatChat. The header displays active WMO float `#3902114` and target cycle `92` $\to$ predicted cycle `93`.
-2. User selects an alternate float (e.g., WMO 2902084) or adjusts the cycle slider in `ControlBar`.
+2. User selects an alternate float (e.g., WMO 2903334) or adjusts the cycle slider in `ControlBar`.
 3. System triggers `/api/forecast` and `/api/profiles/{wmoId}`.
 4. `ProfilePlot` renders the vertical forecast curves alongside persistence baseline and 95% shaded confidence envelopes.
 5. User moves cursor over the graph at 100 dbar:
@@ -94,7 +94,7 @@ FloatChat solves this by binding physics validation, attribution saliency, and N
 
 ### What is Being Predicted?
 - **Target Variables:**
-  - Discrete vertical Temperature profile: $\mathbf{T} = [T(z_1), T(z_2), \dots, T(z_{16})] \in \mathbb{R}^{16}$ where $z \in \{5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 700, 1000\}\text{ dbar}$.
+  - Discrete vertical Temperature profile: $\mathbf{T} = [T(z_1), T(z_2), \dots, T(z_{16})] \in \mathbb{R}^{16}$ where $z \in \{5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000\}\text{ dbar}$.
   - Discrete vertical Salinity profile: $\mathbf{S} = [S(z_1), S(z_2), \dots, S(z_{16})] \in \mathbb{R}^{16}$.
 - **Horizon:** 10-day forward forecast (the standard operational resurfacing interval of an Argo float).
 

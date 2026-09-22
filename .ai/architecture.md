@@ -154,7 +154,7 @@
                                       v
 +-----------------------------------------------------------------------------------+
 |                        LOCAL DATABASE (SQLite / PostgreSQL)                       |
-|   Tables: floats, profiles, measurements, evidence_archive, forecast_history      |
+|   Tables: argo_floats, argo_profiles, profile_levels, forecast_logs               |
 +-----------------------------------------------------------------------------------+
 ```
 

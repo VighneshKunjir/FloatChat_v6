@@ -40,19 +40,35 @@ This document serves as the **single source of truth** between the React fronten
   [
     {
       "wmo_id": "3902114",
-      "name": "Argo #3902114 (Central Arabian Basin)",
-      "baseLat": 14.5,
-      "baseLon": 65.2,
-      "cycles": [88, 89, 90, 91, 92, 93, 94],
-      "defaultCycle": 92
+      "name": "Float 3902114 (Northern Arabian Sea / Gulf of Oman)",
+      "baseLat": 20.45,
+      "baseLon": 62.15,
+      "cycles": [85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+      "defaultCycle": 94
     },
     {
-      "wmo_id": "2902084",
-      "name": "Argo #2902084 (Gulf of Oman Inflow)",
-      "baseLat": 22.1,
-      "baseLon": 61.4,
-      "cycles": [80, 81, 82, 83, 84, 85, 86, 87, 88],
-      "defaultCycle": 87
+      "wmo_id": "2903334",
+      "name": "Float 2903334 (Central Arabian Sea Basin)",
+      "baseLat": 15.3,
+      "baseLon": 65.8,
+      "cycles": [120, 121, 122, 123, 124, 125, 126, 127, 128],
+      "defaultCycle": 127
+    },
+    {
+      "wmo_id": "1902442",
+      "name": "Float 1902442 (Eastern Arabian Sea / Indian West Shelf)",
+      "baseLat": 11.2,
+      "baseLon": 72.4,
+      "cycles": [64, 65, 66, 67, 68, 69, 70, 71],
+      "defaultCycle": 70
+    },
+    {
+      "wmo_id": "2902789",
+      "name": "Float 2902789 (Southwestern Upwelling Corridor)",
+      "baseLat": 8.7,
+      "baseLon": 57.9,
+      "cycles": [150, 151, 152, 153, 154, 155, 156],
+      "defaultCycle": 155
     }
   ]
   ```
@@ -66,20 +82,24 @@ This document serves as the **single source of truth** between the React fronten
   ```json
   [
     {
-      "id": "3902114_91",
+      "profile_id": "ARGO_3902114_CYC091",
       "wmo_id": "3902114",
+      "float_name": "Argo-3902114 (North Arabian Sea)",
+      "platform_type": "PROVOR_CTS4",
       "cycle_number": 91,
       "date": "2024-03-01",
       "latitude": 14.42,
       "longitude": 65.11,
-      "qc_status": "QC_PASSED",
-      "raw_netcdf_source": "nodc_3902114_prof.nc",
-      "gdac_archive_path": "ftp://ftp.ifremer.fr/ifremer/argo/dac/incois/3902114/profiles/D3902114_091.nc",
+      "sea_region": "Arabian Sea (Northern Indian Ocean)",
+      "data_mode": "D",
+      "qc_status": "QC_PASS_FLAG_1",
+      "raw_netcdf_source": "nodc_D3902114_091.nc",
+      "gdac_archive_path": "/ifremer/argo/dac/incois/3902114/profiles/D3902114_091.nc",
       "measurements": [
-        { "depth_dbar": 5, "temperature": 28.62, "salinity": 36.42, "potential_density": 23.51 },
-        { "depth_dbar": 50, "temperature": 27.95, "salinity": 36.51, "potential_density": 23.79 },
-        { "depth_dbar": 100, "temperature": 23.41, "salinity": 35.91, "potential_density": 25.14 },
-        { "depth_dbar": 1000, "temperature": 7.42, "salinity": 35.21, "potential_density": 27.52 }
+        { "depth_dbar": 5, "temperature": 28.62, "salinity": 36.42, "qc_temperature": 1, "qc_salinity": 1 },
+        { "depth_dbar": 50, "temperature": 27.95, "salinity": 36.51, "qc_temperature": 1, "qc_salinity": 1 },
+        { "depth_dbar": 100, "temperature": 23.41, "salinity": 35.91, "qc_temperature": 1, "qc_salinity": 1 },
+        { "depth_dbar": 1000, "temperature": 7.42, "salinity": 35.21, "qc_temperature": 1, "qc_salinity": 1 }
       ]
     }
   ]

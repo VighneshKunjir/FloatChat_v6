@@ -12,7 +12,7 @@
 
 ### TypeScript / Frontend
 - **Target:** TypeScript 5.8+ / ES2022.
-- **Imports:** Strict top-level named imports. Never use object destructuring inside import declarations.
+- **Imports:** Standard top-level named imports (e.g. `import { ForecastResult, ArgoProfile } from '../types.ts';`). Avoid namespace star destructuring on CommonJS dynamic `require()` statements.
 - **Icons:** All UI icons MUST be imported exclusively from `lucide-react`. Do NOT write custom inline SVG icons.
 - **Styling:** Tailwind CSS utility classes exclusively. No external CSS files (except `src/index.css` which houses `@import "tailwindcss";`).
 - **Mathematical Formulations:** All equations in chat or documentation MUST use valid LaTeX syntax (`$..$` for inline, `$$..$$` for block) compatible with `rehype-katex`.
@@ -40,7 +40,7 @@
    If an inference pass violates this condition, it must be flagged with `is_gravitationally_stable = False` and the exact violation count recorded.
 5. **Reproducibility & Random Seeds:** All stochastic operations (Monte Carlo dropout, train/val/test splits, baseline seeds) must use a fixed seed (`seed = 42`).
 6. **No Data Leakage:** When splitting Argo float profiles into training, validation, and test sets, splits must be performed at the **Float Platform Level (WMO ID)** or temporally (historical cycles $1 \dots N-10$ for training, last 10 cycles for testing). Never mix cycles from the same float across train and test without temporal partitioning.
-7. **Inference Latency Limit:** Inference, uncertainty calculation (50 passes), and XAI attribution must complete in under **350 ms** on CPU/GPU. Never run training or parameter optimization inside request handlers.
+7. **Inference Latency Limit:** Inference, uncertainty calculation (50 passes), and XAI attribution have a directional target of under **350 ms** on CPU/GPU (pipeline correctness and zero density inversions take absolute precedence over micro-optimization on CPU). Never run training or parameter optimization inside request handlers.
 
 ---
 
@@ -48,7 +48,8 @@
 
 - **URL Convention:** All API endpoints must be prefixed with `/api/` (e.g., `/api/forecast`, `/api/chat`).
 - **JSON Field Naming:**
-  - **API Contract:** Strictly `snake_case` (e.g., `depth_dbar`, `temperature_forecast`, `uncertainty_bounds`, `wmo_id`).
+  - **API Contract:** Strictly `snake_case` in schemas (e.g., `depth_dbar`, `temperature_forecast`, `uncertainty_bounds`, `wmo_id`).
+  - **Pydantic Request Aliases:** Follow **ADR-007** in `.ai/memory.md` (`populate_by_name=True` with aliases `Field(alias="wmoId")` and `Field(alias="cycle")`) so incoming camelCase from frontend React components is parsed without 422 errors.
   - **TypeScript Interfaces:** Match `src/types.ts` exactly.
 - **Standard Error Response:**
   ```json

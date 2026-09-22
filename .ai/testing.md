@@ -100,7 +100,7 @@ def test_floats_catalog_endpoint():
     res = client.get("/api/floats")
     assert res.status_code == 200
     floats = res.json()
-    assert len(floats) >= 5
+    assert len(floats) >= 4
     assert any(f["wmo_id"] == "3902114" for f in floats)
 
 def test_forecast_contract_schema():

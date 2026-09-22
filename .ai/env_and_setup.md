@@ -62,13 +62,15 @@ python backend/scripts/train_model.py
 
 ### Step C: Launch Development Services
 
-#### Option 1: Current All-in-One Dev Server (Node + Vite Bridge)
+#### Option 1: Standalone Development & Live Preview (Node + Vite Bridge)
+> **Note:** Option 1 is the self-contained bridge (`server.ts` with Vite middleware) used in single-port cloud preview environments (like AI Studio) and pre-migration development. It uses the in-memory/simulated forecasting algorithms in `server/forecaster.ts`. Once Phase 6 is complete, Option 2 is the primary production path.
 ```bash
 npm run dev
 # App is accessible at: http://localhost:3000
 ```
 
-#### Option 2: Production Dual-Process Mode (FastAPI + Vite)
+#### Option 2: Full Python ML Stack (FastAPI Backend + Vite Frontend)
+> **Note:** Option 2 runs the real PyTorch LSTM, TEOS-10, Captum XAI, and SQLite/PostgreSQL backend on port 8000, with requests proxied transparently from the frontend on port 3000.
 In Terminal 1 (Python Backend):
 ```bash
 source venv/bin/activate

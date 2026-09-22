@@ -91,23 +91,29 @@ To ensure 100% offline reliability (avoiding remote FTP timeouts, firewall block
   [
     {
       "wmo_id": "3902114",
-      "platform_name": "Argo #3902114 (Central Arabian Basin)",
-      "base_lat": 14.50,
-      "base_lon": 65.20,
-      "institution": "INCOIS / Argo GDAC",
+      "name": "Float 3902114 (Northern Arabian Sea / Gulf of Oman)",
+      "baseLat": 20.45,
+      "baseLon": 62.15,
+      "baseSST": 28.8,
+      "baseSSS": 36.45,
+      "startDate": "2024-04-10",
+      "cycles": [85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+      "defaultCycle": 94,
       "profiles": [
         {
+          "profile_id": "ARGO_3902114_CYC092",
           "cycle_number": 92,
-          "date": "2024-03-01",
-          "latitude": 14.42,
-          "longitude": 65.11,
-          "qc_status": "QC_PASSED",
-          "raw_netcdf_source": "nodc_3902114_prof.nc",
-          "gdac_archive_path": "ftp://ftp.ifremer.fr/ifremer/argo/dac/incois/3902114/profiles/D3902114_092.nc",
+          "date": "2024-05-20",
+          "latitude": 20.85,
+          "longitude": 62.91,
+          "qc_status": "QC_PASS_FLAG_1",
+          "data_mode": "D",
+          "raw_netcdf_source": "nodc_D3902114_092.nc",
+          "gdac_archive_path": "/ifremer/argo/dac/incois/3902114/profiles/D3902114_092.nc",
           "levels": [
-            { "depth_dbar": 5, "temperature": 28.52, "salinity": 36.45, "potential_density": 23.48 },
-            { "depth_dbar": 100, "temperature": 23.42, "salinity": 35.92, "potential_density": 25.14 },
-            { "depth_dbar": 1000, "temperature": 7.42, "salinity": 35.21, "potential_density": 27.52 }
+            { "depth_dbar": 5, "temperature": 28.52, "salinity": 36.45, "qc_temperature": 1, "qc_salinity": 1 },
+            { "depth_dbar": 100, "temperature": 23.42, "salinity": 35.92, "qc_temperature": 1, "qc_salinity": 1 },
+            { "depth_dbar": 1000, "temperature": 7.42, "salinity": 35.21, "qc_temperature": 1, "qc_salinity": 1 }
           ]
         }
       ]
@@ -115,10 +121,28 @@ To ensure 100% offline reliability (avoiding remote FTP timeouts, firewall block
   ]
   ```
 
-### Future Scope: Live Remote GDAC Ingestion
-An optional live downloading script (`backend/scripts/download_argo.py --download-live`) is reserved for future releases to fetch real-time NetCDF files via HTTPS mirrors:
-- Coriolis (IFREMER): `https://data-argo.ifremer.fr/dac/incois/`
-- Quality Filtering: Delayed-Mode (`DATA_MODE == 'D'`), `TEMP_QC == '1'`, `PSAL_QC == '1'`, discarding profiles missing levels deeper than 800 dbar.
+### Scaling Pipeline: 30 Floats NetCDF Acquisition & Processing
+For production training with realistic ocean physics and statistical generalization, the pipeline scales from the 4-float embedded seed to a full **30-float 4-year historical dataset** from the Argo GDAC:
+- **Download Script:** `backend/scripts/download_argo.py`
+  - Targets 30 operational Arabian Sea floats with extensive delayed-mode histories (e.g. INCOIS/Coriolis mirrors).
+  - Downloads aggregated single NetCDF files per float (`<WMO_ID>_prof.nc`) rather than hundreds of single-cycle files.
+  - Required NetCDF attributes extracted:
+    - Identifiers & Temporal: `wmo_id` (Float ID), `cycle_number`, `juld` (converted from days since 1950-01-01 to ISO date)
+    - Geospatial: `latitude`, `longitude`
+    - Physical: Hydrostatic pressure in decibars (`PRES_ADJUSTED` or `PRES`), in-situ temperature (`TEMP_ADJUSTED` or `TEMP`), practical salinity (`PSAL_ADJUSTED` or `PSAL`)
+    - Quality Flags: `TEMP_QC`, `PSAL_QC`, `PRES_QC`, `POSITION_QC`
+    - Metadata: `DATA_MODE` (`D` / `A` preferred over `R`), `DIRECTION` (ascending `'A'` only)
+- **Cleaning & Discretization Rules:**
+  1. **Mask Missing Values:** Convert Argo fill value sentinels (`99999.0` / `9999.0`) to `NaN`.
+  2. **QC Flag Filtering:** Retain only measurements with QC flags `1` (Good) or `2` (Probably Good).
+  3. **Physical Range Bounds:** Filter out sensor spikes ($T \in [-2.0, 35.0]^\circ\text{C}$, $S \in [30.0, 42.0]\text{ PSU}$).
+  4. **Vertical Interpolation:** Linear or Akima spline interpolation onto canonical 16-level pressure grid (`[5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000] dbar`). Profiles not reaching at least 850 dbar are discarded to avoid artificial extrapolation.
+  5. **Deduplication:** Remove duplicate cycles by retaining the delayed-mode (`D`) version.
+- **Processed Tabular Matrix (Wide Format CSV):**
+  - Saved to: `backend/data/processed/argo_30floats_canonical.csv`
+  - Shape: One row per (float, cycle) containing:
+    `wmo_id, cycle_number, date, latitude, longitude, temp_5, temp_20, ..., temp_1000, sal_5, sal_20, ..., sal_1000, qc_temp_5, ..., qc_sal_1000`
+  - Enables instant $O(1)$ windowing of 3 consecutive historical cycles for LSTM sequences without costly relational joins.
 
 ---
 
@@ -130,6 +154,6 @@ An optional live downloading script (`backend/scripts/download_argo.py --downloa
    - Fit `StandardScaler` on the training partition only.
    - Save scalers as `backend/app/ml/artifacts/preprocessor.joblib`.
 5. **Data Split (No Leakage):**
-   - **Training Set (70%):** All cycles for 70% of floats in the Arabian Sea.
-   - **Validation Set (15%):** Held-out floats for hyperparameter tuning.
-   - **Test Set (15%):** Completely unseen floats evaluating spatial and seasonal generalization.
+   - **Spatial Partition:** 21 floats for training, 4–5 held-out floats for validation, and 4–5 completely unseen floats for spatial generalization testing.
+   - **Temporal Partition:** For training floats, the final 10 cycles are held out as an operational temporal forecast benchmark ($t-3, t-2, t-1 \to t$).
+

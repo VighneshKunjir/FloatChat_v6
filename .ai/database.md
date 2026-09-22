@@ -69,13 +69,13 @@ CREATE TABLE argo_floats (
 
 -- 2. Argo Historical Profiles (Cycle Level)
 CREATE TABLE argo_profiles (
-    profile_id VARCHAR(64) PRIMARY KEY, -- e.g. '3902114_92'
+    profile_id VARCHAR(64) PRIMARY KEY, -- e.g. 'ARGO_3902114_CYC092'
     wmo_id VARCHAR(16) NOT NULL REFERENCES argo_floats(wmo_id) ON DELETE CASCADE,
     cycle_number INTEGER NOT NULL,
     date DATE NOT NULL,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-    qc_status VARCHAR(32) DEFAULT 'QC_PASSED',
+    qc_status VARCHAR(32) DEFAULT 'QC_PASS_FLAG_1',
     raw_netcdf_source VARCHAR(256) NOT NULL,
     gdac_archive_path VARCHAR(512) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -144,13 +144,13 @@ class ArgoFloat(Base):
 class ArgoProfile(Base):
     __tablename__ = "argo_profiles"
 
-    profile_id = Column(String(64), primary_key=True) # e.g. '3902114_92'
+    profile_id = Column(String(64), primary_key=True) # e.g. 'ARGO_3902114_CYC092'
     wmo_id = Column(String(16), ForeignKey("argo_floats.wmo_id"), nullable=False)
     cycle_number = Column(Integer, nullable=False)
     date = Column(Date, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    qc_status = Column(String(32), default="QC_PASSED")
+    qc_status = Column(String(32), default="QC_PASS_FLAG_1")
     raw_netcdf_source = Column(String(256), nullable=False)
     gdac_archive_path = Column(String(512), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -194,7 +194,7 @@ class ForecastLog(Base):
 ---
 
 ## 5. Seed Data Strategy
-The backend seed script (`backend/scripts/seed_db.py`) ingests data from the five Arabian Sea reference floats (`3902114`, `2902084`, `2902266`, `2902123`, `2902099`), populating all 440+ historical cycles and 7,000+ vertical levels.
+The backend seed script (`backend/scripts/seed_db.py`) ingests data from the four operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`) via `backend/data/seed_reference_profiles.json`, populating all 35 historical cycles and 560 vertical level measurements in $<2$ seconds without external network dependencies.
 
 Commands to seed:
 ```bash

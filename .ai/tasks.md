@@ -11,12 +11,12 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Acceptance Criteria:* Running `ls -la backend/app` displays `api/`, `core/`, `models/`, `schemas/`, `ml/`, and `db/`.
 - [ ] **TASK-002: Define Backend Python Dependencies**
   - *Files:* `backend/requirements.txt`
-  - *Description:* Specify exact pinned packages: `fastapi`, `uvicorn`, `pydantic`, `sqlalchemy`, `alembic`, `torch`, `gsw`, `netCDF4`, `xarray`, `scikit-learn`, `captum`, `google-genai`.
+  - *Description:* Specify exact pinned packages: `fastapi`, `uvicorn`, `pydantic`, `sqlalchemy`, `alembic`, `torch`, `gsw`, `netCDF4`, `xarray`, `scikit-learn`, `scipy`, `captum`, `google-genai`.
   - *Acceptance Criteria:* `pip install -r backend/requirements.txt` completes without dependency conflict.
-- [ ] **TASK-003: Configure Frontend API Proxy in Vite**
-  - *Files:* `vite.config.ts`
-  - *Description:* Add proxy configuration routing all `/api` calls from Vite (port 3000) to FastAPI (port 8000).
-  - *Acceptance Criteria:* `curl http://localhost:3000/api/health` proxies transparently to backend port 8000.
+- [ ] **TASK-003: Configure Reverse Proxy to Python Backend**
+  - *Files:* `server.ts`, `vite.config.ts`
+  - *Description:* Configure proxying of `/api/*` routes to FastAPI backend (port 8000) when running the full Python stack. In the AI Studio runtime, `server.ts` can use `http-proxy-middleware` or an environment flag `USE_PYTHON_BACKEND=true` to forward requests to `http://localhost:8000`. For standalone Vite dev, `vite.config.ts` configures `server.proxy` for `/api`.
+  - *Acceptance Criteria:* `curl http://localhost:3000/api/health` proxies transparently to FastAPI port 8000 when active.
 
 ---
 
@@ -31,8 +31,12 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Acceptance Criteria:* `alembic upgrade head` generates all 4 tables in SQLite.
 - [ ] **TASK-103: Create Self-Contained Argo Seeding Script**
   - *Files:* `backend/scripts/seed_db.py`, `backend/data/seed_reference_profiles.json`
-  - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing all historical profile cycles and standardized 16 depth levels for the 4 operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`). (Ensures zero network/FTP failures).
+  - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing historical profile cycles and standardized 16 depth levels for the 4 operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`). (Ensures zero network/FTP failures).
   - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>500$ level measurement rows in $<2$ seconds; querying SQLite returns 4 floats.
+- [ ] **TASK-104: Implement 30-Float Real Data GDAC Ingestion Pipeline**
+  - *Files:* `backend/scripts/download_argo.py`, `backend/data/processed/argo_30floats_canonical.csv`
+  - *Description:* Create the automated pipeline to fetch NetCDF profiles for 30 operational Arabian Sea floats (4 years history), filter by QC flags (1/2), interpolate to canonical 16-level depth grid (`[5, 20, ..., 1000] dbar`), clean unphysical outliers, and export to canonical wide-format CSV matrix for ML training and database ingestion.
+  - *Acceptance Criteria:* Wide-format CSV contains 30 distinct floats, clean 16 standard depths, and passes TEOS-10 static stability validation.
 
 ---
 
@@ -61,6 +65,10 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Files:* `backend/scripts/train_model.py`
   - *Description:* Train model prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback on Arabian Sea float sequence splits, apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
   - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ and artifacts are saved to disk in $<45$ seconds on GPU.
+- [ ] **TASK-304: Implement Baseline Regressors (Persistence & Gradient Boosting)**
+  - *Files:* `backend/scripts/train_baselines.py`, `backend/app/ml/baselines.py`
+  - *Description:* Train and benchmark standard Persistence ($t-1$) and Gradient Boosting (`HistGradientBoostingRegressor` or `XGBoost`) models on the same sequence splits. Generate benchmark comparison metrics (`metrics_comparison`) matching `ModelMetric[]` in `src/types.ts`.
+  - *Acceptance Criteria:* Persistence and Gradient Boosting evaluation metrics match Table in `.ai/ml_spec.md` and are serialized to `backend/app/ml/artifacts/baseline_metrics.json`.
 
 ---
 
@@ -77,6 +85,10 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 5: FastAPI REST Endpoints & Schemas
+- [ ] **TASK-500: Implement Health Check Endpoint**
+  - *Files:* `backend/app/api/health.py`
+  - *Description:* Implement `GET /api/health` returning system status, service identity, and physics engine mode.
+  - *Acceptance Criteria:* `curl http://localhost:8000/api/health` returns `200 OK` with JSON `{"status": "ok", "service": "FloatChat-XRAG-Forecasting-Engine"}`.
 - [ ] **TASK-501: Implement Pydantic Schemas**
   - *Files:* `backend/app/schemas/forecast.py`, `backend/app/schemas/chat.py`
   - *Description:* Write exact Pydantic schemas mirroring `.ai/api_contract.md`.
@@ -84,7 +96,7 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 - [ ] **TASK-502: Implement Floats & Profiles Endpoints**
   - *Files:* `backend/app/api/floats.py`
   - *Description:* Implement `GET /api/floats` and `GET /api/profiles/{wmoId}` querying SQLAlchemy.
-  - *Acceptance Criteria:* `curl http://localhost:8000/api/floats` returns JSON array with 5 floats.
+  - *Acceptance Criteria:* `curl http://localhost:8000/api/floats` returns JSON array with all seeded operational floats.
 - [ ] **TASK-503: Implement Forecasting & Inference Endpoint**
   - *Files:* `backend/app/api/forecast.py`
   - *Description:* Wire preprocessor, PyTorch LSTM inference, MC Dropout UQ, TEOS-10 validator, Captum XAI, and Evidence-Link matcher into `POST /api/forecast`. Persist forecast result into `forecast_logs` table.

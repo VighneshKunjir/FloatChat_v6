@@ -41,7 +41,8 @@ The next major architectural milestone is migrating the backend calculations int
 - Offline analytical fallback engine generating grounded oceanographic explanations when API keys are absent.
 
 ### Currently In-Memory / Simulated:
-- `server/argoData.ts`: 5 reference Arabian Sea floats with ~30 cycles stored as in-memory TypeScript objects rather than in a relational database.
+- `server/argoData.ts`: 4 reference Arabian Sea floats with 35 cycles stored as in-memory TypeScript objects in the development bridge, mirroring `backend/data/seed_reference_profiles.json` rather than querying a relational database.
+- `server.ts` & `server/`: Currently acts as the development and AI Studio bridge serving mock API responses and the Vite SPA. In Phase 6, this is superseded or proxied to the production Python FastAPI ML backend.
 - `server/forecaster.ts`: Forecasting logic uses analytical numerical simulations mimicking an evaluated LSTM rather than a loaded `.pt` neural network.
 - Saliency weights: Hardcoded representative values calibrated from offline training rather than dynamically generated per-request by Captum.
 
@@ -50,11 +51,12 @@ The next major architectural milestone is migrating the backend calculations int
 ## 4. Known Bugs & Minor Limitations
 - No persistent storage for user forecast logs or custom chat sessions (reset on page reload).
 - When running in purely client-side static mode without Node or Python backend, `/api` calls fail (requires running `npm run dev` or backend server).
+- In the dual-stack development setup, proxying via `vite.config.ts` requires running standalone Vite or routing requests through `server.ts` when Express handles `/api/*` routes.
 
 ---
 
 ## 5. Immediate Next Action
 Proceed to **Phase 0 & Phase 1** in `.ai/tasks.md`:
-1. Initialize the `backend/` folder.
-2. Install Python dependencies in `backend/requirements.txt`.
+1. Initialize the `backend/` folder hierarchy.
+2. Ingest `backend/data/seed_reference_profiles.json` and build `download_argo.py` for the 30-float canonical pipeline.
 3. Implement SQLAlchemy models in `backend/app/models/schema.py` and run `seed_db.py`.
