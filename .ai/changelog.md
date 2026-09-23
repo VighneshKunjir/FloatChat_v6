@@ -45,6 +45,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `seed_reference_profiles.json` exists with 4 floats, 35 cycles, 16 standard pressure levels.
 
 ---
+ 
+## [Phase 1 Complete] - 2026-09-24
+### Added
+- **Argo NetCDF Processing Pipeline** (`backend/scripts/process_argo_netcdf.py`): Processes 11,801 raw NetCDF files from 32 floats into canonical CSV.
+- **Canonical Training Dataset** (`backend/data/processed/argo_30floats_canonical.csv`): 8,738 profiles × 59 columns (metadata + 16 T + 16 S + 16 σ_θ).
+- **TEOS-10 Physics Computation**: σ_θ, static stability (∂σ_θ/∂z), Brunt-Väisälä N², MLD per profile.
+- **QC Filtering**: Delayed-mode only, QC flags 1/2, vertical interpolation (PCHIP) to 16 standard depths.
+
+### Verified
+- `python backend/scripts/process_argo_netcdf.py` completes in ~3 minutes
+- Output: 8,738 profiles, 32 unique floats, date range 2002-2026
+- 62.4% profiles pass TEOS-10 static stability (∂σ_θ/∂z ≥ 0)
+- All 16 standard depth levels populated (5-1000 dbar)
+
+---
+ 
+## [Phase 1 Complete] - 2026-09-23
+### Added
+- **SQLAlchemy 2.0 ORM Models** (`backend/app/models/schema.py`): `ArgoFloat`, `ArgoProfile`, `ProfileLevel`, `ForecastLog` with proper relationships, constraints, and indexes matching `.ai/database.md`.
+- **Database Engine & Session** (`backend/app/db/session.py`): SQLite default with `DATABASE_URL` override, `SessionLocal`, `init_db()`, context managers.
+- **Alembic Migrations** (`backend/alembic/`): Configured with `script_location = alembic`, auto-generated initial migration, `alembic upgrade head` creates all 4 tables + `alembic_version`.
+- **Self-Contained Seeding Script** (`backend/scripts/seed_db.py`): Ingests `backend/data/seed_reference_profiles.json` (4 floats, 35 profiles, 560 levels) in <2 seconds, idempotent with existence checks.
+
+### Verified
+- `python -c "from app.models.schema import ArgoFloat; print(ArgoFloat.__tablename__)"` → `argo_floats`
+- `alembic upgrade head` → Creates `argo_floats`, `argo_profiles`, `profile_levels`, `forecast_logs`, `alembic_version`
+- `python backend/scripts/seed_db.py` → 4 floats, 35 profiles, 560 levels inserted
+- Database file at `backend/data/floatchat.db`
+
+---
 
 ## [1.2.0] - 2026-09-21 (AI Studio Initial Build & UI Maturation)
 ### Added

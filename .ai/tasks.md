@@ -21,19 +21,19 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 1: Database Setup & Argo GDAC Seeding
-- [ ] **TASK-101: Implement SQLAlchemy 2.0 ORM Models**
+- [x] **TASK-101: Implement SQLAlchemy 2.0 ORM Models**
   - *Files:* `backend/app/models/schema.py`
   - *Description:* Implement `ArgoFloat`, `ArgoProfile`, `ProfileLevel`, and `ForecastLog` exactly as written in `.ai/database.md`.
   - *Acceptance Criteria:* `python -c "from app.models.schema import ArgoFloat; print(ArgoFloat.__tablename__)"` prints `argo_floats`.
-- [ ] **TASK-102: Configure Database Engine & Alembic Migrations**
+- [x] **TASK-102: Configure Database Engine & Alembic Migrations**
   - *Files:* `backend/app/db/session.py`, `backend/alembic.ini`, `backend/alembic/`
   - *Description:* Configure SQLite default file engine (`sqlite:///./data/floatchat.db`) with fallback to `DATABASE_URL` environment variable.
   - *Acceptance Criteria:* `alembic upgrade head` generates all 4 tables in SQLite.
-- [ ] **TASK-103: Create Self-Contained Argo Seeding Script**
+- [x] **TASK-103: Create Self-Contained Argo Seeding Script**
   - *Files:* `backend/scripts/seed_db.py`, `backend/data/seed_reference_profiles.json`
   - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing historical profile cycles and standardized 16 depth levels for the 4 operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`). (Ensures zero network/FTP failures).
   - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>500$ level measurement rows in $<2$ seconds; querying SQLite returns 4 floats.
-- [ ] **TASK-104: Implement 30-Float Real Data GDAC Ingestion Pipeline**
+- [x] **TASK-104: Implement 30-Float Real Data GDAC Ingestion Pipeline**
   - *Files:* `backend/scripts/download_argo.py`, `backend/data/processed/argo_30floats_canonical.csv`
   - *Description:* Create the automated pipeline to fetch NetCDF profiles for 30 operational Arabian Sea floats (4 years history), filter by QC flags (1/2), interpolate to canonical 16-level depth grid (`[5, 20, ..., 1000] dbar`), clean unphysical outliers, and export to canonical wide-format CSV matrix for ML training and database ingestion.
   - *Acceptance Criteria:* Wide-format CSV contains 30 distinct floats, clean 16 standard depths, and passes TEOS-10 static stability validation.
