@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
 
 import { ARGO_FLOATS, ALL_PROFILES } from './server/argoData.ts';
@@ -13,86 +14,98 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const USE_PYTHON_BACKEND = process.env.USE_PYTHON_BACKEND === 'true';
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
 
-  // API Routes
-  // 1. Health check
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'ok',
-      service: 'FloatChat-XRAG-Forecasting-Engine',
-      region: 'Arabian Sea / Northern Indian Ocean',
-      version: '1.2.0-IEEE-Access-Spec'
-    });
-  });
-
-  // 2. Available floats list
-  app.get('/api/floats', (req, res) => {
-    const list = ARGO_FLOATS.map(f => ({
-      wmo_id: f.wmo_id,
-      name: f.name,
-      baseLat: f.baseLat,
-      baseLon: f.baseLon,
-      cycles: f.cycles,
-      defaultCycle: f.cycles[f.cycles.length - 2]
+  // If Python backend is enabled, proxy all /api/* requests to FastAPI
+  if (USE_PYTHON_BACKEND) {
+    app.use('/api', createProxyMiddleware({
+      target: PYTHON_BACKEND_URL,
+      changeOrigin: true,
     }));
-    res.json(list);
-  });
-
-  // 3. Float profiles
-  app.get('/api/profiles/:wmoId', (req, res) => {
-    const { wmoId } = req.params;
-    const profiles = [];
-    for (const [key, profile] of ALL_PROFILES) {
-      if (key.startsWith(`${wmoId}_`)) {
-        profiles.push(profile);
-      }
-    }
-    profiles.sort((a, b) => a.cycle_number - b.cycle_number);
-    res.json(profiles);
-  });
-
-  // 4. Run Forecast with UQ, XAI attribution, and Evidence Links
-  app.post('/api/forecast', (req, res) => {
-    try {
-      const { wmoId, cycle } = req.body;
-      const targetWmo = wmoId || '3902114';
-      const targetCycle = Number(cycle) || 92;
-
-      const result = runFloatForecast(targetWmo, targetCycle);
-      res.json(result);
-    } catch (err: any) {
-      console.error('Forecast calculation error:', err);
-      res.status(500).json({ error: err.message || 'Forecast generation failed' });
-    }
-  });
-
-  // 5. Conversational RAG & Anti-Hallucination Guardrail endpoint
-  app.post('/api/chat', async (req, res) => {
-    try {
-      const { query, wmoId, cycle } = req.body;
-      if (!query) {
-        return res.status(400).json({ error: 'Query is required' });
-      }
-
-      const targetWmo = wmoId || '3902114';
-      const targetCycle = Number(cycle) || 92;
-      const forecast = runFloatForecast(targetWmo, targetCycle);
-
-      const response = await generateScientificResponse(query, forecast);
+    console.log(`[Proxy] Forwarding /api/* to ${PYTHON_BACKEND_URL}`);
+  } else {
+    // API Routes (Node/Express mock implementation)
+    // 1. Health check
+    app.get('/api/health', (req, res) => {
       res.json({
-        ...response,
-        forecast_context: forecast
+        status: 'ok',
+        service: 'FloatChat-XRAG-Forecasting-Engine',
+        region: 'Arabian Sea / Northern Indian Ocean',
+        version: '1.2.0-IEEE-Access-Spec'
       });
-    } catch (err: any) {
-      console.error('Chat processing error:', err);
-      res.status(500).json({ error: err.message || 'Error processing scientific dialogue' });
-    }
-  });
+    });
+
+    // 2. Available floats list
+    app.get('/api/floats', (req, res) => {
+      const list = ARGO_FLOATS.map(f => ({
+        wmo_id: f.wmo_id,
+        name: f.name,
+        baseLat: f.baseLat,
+        baseLon: f.baseLon,
+        cycles: f.cycles,
+        defaultCycle: f.cycles[f.cycles.length - 2]
+      }));
+      res.json(list);
+    });
+
+    // 3. Float profiles
+    app.get('/api/profiles/:wmoId', (req, res) => {
+      const { wmoId } = req.params;
+      const profiles = [];
+      for (const [key, profile] of ALL_PROFILES) {
+        if (key.startsWith(`${wmoId}_`)) {
+          profiles.push(profile);
+        }
+      }
+      profiles.sort((a, b) => a.cycle_number - b.cycle_number);
+      res.json(profiles);
+    });
+
+    // 4. Run Forecast with UQ, XAI attribution, and Evidence Links
+    app.post('/api/forecast', (req, res) => {
+      try {
+        const { wmoId, cycle } = req.body;
+        const targetWmo = wmoId || '3902114';
+        const targetCycle = Number(cycle) || 92;
+
+        const result = runFloatForecast(targetWmo, targetCycle);
+        res.json(result);
+      } catch (err: any) {
+        console.error('Forecast calculation error:', err);
+        res.status(500).json({ error: err.message || 'Forecast generation failed' });
+      }
+    });
+
+    // 5. Conversational RAG & Anti-Hallucination Guardrail endpoint
+    app.post('/api/chat', async (req, res) => {
+      try {
+        const { query, wmoId, cycle } = req.body;
+        if (!query) {
+          return res.status(400).json({ error: 'Query is required' });
+        }
+
+        const targetWmo = wmoId || '3902114';
+        const targetCycle = Number(cycle) || 92;
+        const forecast = runFloatForecast(targetWmo, targetCycle);
+
+        const response = await generateScientificResponse(query, forecast);
+        res.json({
+          ...response,
+          forecast_context: forecast
+        });
+      } catch (err: any) {
+        console.error('Chat processing error:', err);
+        res.status(500).json({ error: err.message || 'Error processing scientific dialogue' });
+      }
+    });
+  }
 
   // Vite middleware for development vs static serve for production
   if (process.env.NODE_ENV !== 'production') {

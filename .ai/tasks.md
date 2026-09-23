@@ -5,15 +5,15 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 0: Setup, Environment & Repo Initialization
-- [ ] **TASK-001: Create Backend Directory Structure**
+- [x] **TASK-001: Create Backend Directory Structure**
   - *Files:* `backend/app/`, `backend/scripts/`, `backend/tests/`, `backend/requirements.txt`
   - *Description:* Initialize the target Python backend layout conforming to `.ai/architecture.md`.
   - *Acceptance Criteria:* Running `ls -la backend/app` displays `api/`, `core/`, `models/`, `schemas/`, `ml/`, and `db/`.
-- [ ] **TASK-002: Define Backend Python Dependencies**
+- [x] **TASK-002: Define Backend Python Dependencies**
   - *Files:* `backend/requirements.txt`
   - *Description:* Specify exact pinned packages: `fastapi`, `uvicorn`, `pydantic`, `sqlalchemy`, `alembic`, `torch`, `gsw`, `netCDF4`, `xarray`, `scikit-learn`, `scipy`, `captum`, `google-genai`.
   - *Acceptance Criteria:* `pip install -r backend/requirements.txt` completes without dependency conflict.
-- [ ] **TASK-003: Configure Reverse Proxy to Python Backend**
+- [x] **TASK-003: Configure Reverse Proxy to Python Backend**
   - *Files:* `server.ts`, `vite.config.ts`
   - *Description:* Configure proxying of `/api/*` routes to FastAPI backend (port 8000) when running the full Python stack. In the AI Studio runtime, `server.ts` can use `http-proxy-middleware` or an environment flag `USE_PYTHON_BACKEND=true` to forward requests to `http://localhost:8000`. For standalone Vite dev, `vite.config.ts` configures `server.proxy` for `/api`.
   - *Acceptance Criteria:* `curl http://localhost:3000/api/health` proxies transparently to FastAPI port 8000 when active.

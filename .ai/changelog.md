@@ -27,6 +27,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Phase 0 Complete] - 2026-09-23
+### Added
+- **Backend Directory Structure**: Created `backend/app/{api,core,models,schemas,ml,db}` with `ml/artifacts`, `db/alembic`, `scripts`, `tests`, `data/{raw,processed}`.
+- **Python Dependencies**: `backend/requirements.txt` with FastAPI, SQLAlchemy, PyTorch, gsw, Captum, and all scientific ML packages.
+- **Reverse Proxy Configuration**: 
+  - `vite.config.ts`: Added `server.proxy` for `/api/*` → `http://localhost:8000`
+  - `server.ts`: Added `USE_PYTHON_BACKEND` env flag with `http-proxy-middleware` to forward `/api/*` to FastAPI
+- **Node Dependency**: Installed `http-proxy-middleware@^3.0.3`
+
+### Changed
+- Updated `package.json` with `http-proxy-middleware` dependency.
+
+### Verified
+- `pip install -r backend/requirements.txt` completes successfully (all packages installed).
+- `tsc --noEmit` passes with zero TypeScript errors.
+- `seed_reference_profiles.json` exists with 4 floats, 35 cycles, 16 standard pressure levels.
+
+---
+
 ## [1.2.0] - 2026-09-21 (AI Studio Initial Build & UI Maturation)
 ### Added
 - **Live Prediction Readout Box:** Real-time on-screen numerical readout in `ProfilePlot.tsx` updating on graph hover with exact Temperature (°C), Salinity (PSU), Potential Density ($\sigma_\theta$), and 95% Confidence Intervals.

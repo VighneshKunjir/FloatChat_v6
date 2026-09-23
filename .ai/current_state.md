@@ -1,6 +1,6 @@
 # FloatChat: Current System State
 
-*Last updated: 2026-09-21*
+*Last updated: 2026-09-23*
 
 ---
 
@@ -8,6 +8,8 @@
 FloatChat currently operates as a complete, fully functional React 19 + TypeScript single-page application supported by an Express/Node.js development server bridge. The UI/UX is fully realized and responsive. The core forecasting algorithms, TEOS-10 potential density validation, Monte Carlo uncertainty bands, and GDAC Evidence citations are implemented in TypeScript in `server/forecaster.ts` and `server/argoData.ts`.
 
 The next major architectural milestone is migrating the backend calculations into a high-performance Python FastAPI service backed by a real SQLite/PostgreSQL database and PyTorch ML models as planned in `.ai/tasks.md`.
+
+**Phase 0 Complete**: Backend directory structure created, Python dependencies defined and installed, reverse proxy configured for `/api/*` → FastAPI (port 8000).
 
 ---
 
@@ -25,7 +27,7 @@ The next major architectural milestone is migrating the backend calculations int
 | **Hydrographic Sea Map** | `src/components/TrajectoryMap.tsx` | **DONE** | Detailed Arabian Sea bathymetry, SST, and Haline salinity cores. Interactive drift playback, range rings, and cursor telemetry HUD. |
 | **XAI & Physics Diagnostics** | `src/components/XaiDiagnostics.tsx` | **DONE** | Visualizes temporal lag weights ($t-1, t-2, t-3$), depth saliency matrix, and Brunt-Väisälä buoyancy frequency ($N^2$). |
 | **Model Benchmarks** | `src/components/EvaluationBenchmarks.tsx` | **DONE** | Metric cards and comparative bar charts evaluating LSTM vs Gradient Boosting vs Persistence. |
-| **Python FastAPI Backend** | `backend/` | **TO BUILD** | Detailed in `.ai/tasks.md` (Phases 0–6). |
+| **Python FastAPI Backend** | `backend/` | **PHASE 0 DONE** | Directory structure, requirements, proxy configured. Phases 1–6 in `.ai/tasks.md`. |
 | **Local SQLite/Postgres DB** | `backend/app/models/` | **TO BUILD** | Schema specified in `.ai/database.md`. |
 | **PyTorch Bi-LSTM Model** | `backend/app/ml/` | **TO BUILD** | Architecture specified in `.ai/ml_spec.md`. |
 
@@ -56,7 +58,7 @@ The next major architectural milestone is migrating the backend calculations int
 ---
 
 ## 5. Immediate Next Action
-Proceed to **Phase 0 & Phase 1** in `.ai/tasks.md`:
-1. Initialize the `backend/` folder hierarchy.
-2. Ingest `backend/data/seed_reference_profiles.json` and build `download_argo.py` for the 30-float canonical pipeline.
-3. Implement SQLAlchemy models in `backend/app/models/schema.py` and run `seed_db.py`.
+Proceed to **Phase 1** in `.ai/tasks.md`:
+1. Implement SQLAlchemy models in `backend/app/models/schema.py` (TASK-101).
+2. Configure Database Engine & Alembic Migrations (TASK-102).
+3. Create Self-Contained Argo Seeding Script (TASK-103).
