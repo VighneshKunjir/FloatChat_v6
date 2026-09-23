@@ -41,7 +41,7 @@ The next major architectural milestone is migrating the backend calculations int
 - Offline analytical fallback engine generating grounded oceanographic explanations when API keys are absent.
 
 ### Currently In-Memory / Simulated:
-- `server/argoData.ts`: 4 reference Arabian Sea floats with 35 cycles stored as in-memory TypeScript objects in the development bridge, mirroring `backend/data/seed_reference_profiles.json` rather than querying a relational database.
+- `server/argoData.ts`: 34 operational Arabian Sea floats with 4-year cycle sequences stored in the development bridge, mirroring `backend/data/seed_reference_profiles.json` and `argo_34floats_canonical.csv` rather than querying a relational database.
 - `server.ts` & `server/`: Currently acts as the development and AI Studio bridge serving mock API responses and the Vite SPA. In Phase 6, this is superseded or proxied to the production Python FastAPI ML backend.
 - `server/forecaster.ts`: Forecasting logic uses analytical numerical simulations mimicking an evaluated LSTM rather than a loaded `.pt` neural network.
 - Saliency weights: Hardcoded representative values calibrated from offline training rather than dynamically generated per-request by Captum.

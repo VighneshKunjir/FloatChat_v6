@@ -55,12 +55,12 @@
 - **Decision:** All FastAPI Pydantic request models must enable `populate_by_name=True` with explicit aliases (e.g., `Field(alias="wmoId")` and `Field(alias="cycle")`) to accept both conventions seamlessly. The dev environment routes requests through Port 3000 to maintain uninterrupted live preview.
 - **Consequences:** Eliminates 422 Unprocessable Entity runtime errors when switching between frontend mock server and real Python FastAPI backend.
 
-### ADR-008: 30-Float 4-Year NetCDF Pipeline for Operational Model Scaling
-- **Date:** 2026-09-22
+### ADR-008: 34-Float 4-Year NetCDF Pipeline for Operational Model Scaling
+- **Date:** 2026-09-22 (Updated 2026-09-23)
 - **Status:** Accepted
-- **Context:** While the 4-float seed dataset is ideal for instant automated testing and offline development, training deep sequence models requires statistical diversity across seasonal monsoonal cycles and broader Arabian Sea hydrography.
-- **Decision:** Implement `backend/scripts/download_argo.py` to ingest 4-year NetCDF data for 30 operational Arabian Sea floats, clean fill values and unphysical outliers, filter by QC flags (1/2), and interpolate to the canonical 16-level depth grid. Export as a unified wide-format CSV (`backend/data/processed/argo_30floats_canonical.csv`) with one row per profile.
-- **Consequences:** Provides a scalable, high-volume training corpus for the PyTorch Bi-LSTM and Gradient Boosting baselines while preserving fast offline testing with `seed_reference_profiles.json`.
+- **Context:** While the 4-float seed dataset is ideal for instant automated testing and offline development, training deep sequence models requires statistical diversity across seasonal monsoonal cycles and broader Arabian Sea hydrography. The user provided the exact set of 34 downloaded NetCDF float platforms (`6903059`, `6903060`, `6903063`, `6903058`, `2900090`, `2901509`, `6902943`, `6903062`, `2900089`, `2901447`, `2901108`, `2901107`, `6903008`, `2900394`, `6903046`, `2901337`, `2901370`, `2901372`, `2902390`, `6903007`, `2902203`, `2901444`, `2901339`, `2901338`, `2901466`, `2901415`, `2901465`, `2902391`, `2902206`, `2901132`, `1902442`, `2902789`, `2903334`, `3902114`).
+- **Decision:** Target solely these 34 floats in `backend/scripts/download_argo.py` and the application catalog. Ingest 4-year NetCDF data for these 34 floats, clean fill values and unphysical outliers, filter by QC flags (1/2), and interpolate to the canonical 16-level depth grid. Export as a unified wide-format CSV (`backend/data/processed/argo_34floats_canonical.csv`) with one row per profile.
+- **Consequences:** Restricts project scope and model training strictly to the exact 34 available NetCDF floats. Provides a scalable, high-volume training corpus for the PyTorch Bi-LSTM and Gradient Boosting baselines while maintaining seamless offline testing.
 
 ---
 

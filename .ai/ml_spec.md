@@ -55,7 +55,7 @@ Where:
 - **Seed:** Fixed seed 42 for reproducibility.
 
 ### Acceptance Thresholds ("Good Enough" for Production)
-> **Note on Datasets & Thresholds:** The RMSE targets below represent directional operational benchmarks achieved when trained on the full 30-float 4-year dataset (`argo_30floats_canonical.csv`). When running rapid unit tests or test-suite fixtures against the small 4-float seed dataset (`seed_reference_profiles.json`), pipeline correctness, artifact serialization, and strict physical stability (zero unphysical density inversions: $\partial\sigma_\theta / \partial z \ge 0$) take precedence over achieving exact decimal RMSE targets.
+> **Note on Datasets & Thresholds:** The RMSE targets below represent directional operational benchmarks achieved when trained on the full 34-float 4-year dataset (`argo_34floats_canonical.csv`). When running rapid unit tests or test-suite fixtures against the small 4-float seed dataset (`seed_reference_profiles.json`), pipeline correctness, artifact serialization, and strict physical stability (zero unphysical density inversions: $\partial\sigma_\theta / \partial z \ge 0$) take precedence over achieving exact decimal RMSE targets.
 
 | Metric | Baseline (Persistence $t-1$) | Gradient Boosting | Required Model Performance |
 | :--- | :--- | :--- | :--- |

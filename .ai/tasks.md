@@ -33,10 +33,10 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Files:* `backend/scripts/seed_db.py`, `backend/data/seed_reference_profiles.json`
   - *Description:* Write a script to ingest the self-contained offline dataset (`backend/data/seed_reference_profiles.json`) containing historical profile cycles and standardized 16 depth levels for the 4 operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`). (Ensures zero network/FTP failures).
   - *Acceptance Criteria:* Running `python backend/scripts/seed_db.py` inserts $>500$ level measurement rows in $<2$ seconds; querying SQLite returns 4 floats.
-- [ ] **TASK-104: Implement 30-Float Real Data GDAC Ingestion Pipeline**
-  - *Files:* `backend/scripts/download_argo.py`, `backend/data/processed/argo_30floats_canonical.csv`
-  - *Description:* Create the automated pipeline to fetch NetCDF profiles for 30 operational Arabian Sea floats (4 years history), filter by QC flags (1/2), interpolate to canonical 16-level depth grid (`[5, 20, ..., 1000] dbar`), clean unphysical outliers, and export to canonical wide-format CSV matrix for ML training and database ingestion.
-  - *Acceptance Criteria:* Wide-format CSV contains 30 distinct floats, clean 16 standard depths, and passes TEOS-10 static stability validation.
+- [ ] **TASK-104: Implement 34-Float Real Data NetCDF Ingestion Pipeline**
+  - *Files:* `backend/scripts/download_argo.py`, `backend/data/processed/argo_34floats_canonical.csv`
+  - *Description:* Create the automated pipeline to ingest raw NetCDF profiles for the 34 curated operational Arabian Sea floats (4 years history: `6903059`, `6903060`, `6903063`, `6903058`, `2900090`, `2901509`, `6902943`, `6903062`, `2900089`, `2901447`, `2901108`, `2901107`, `6903008`, `2900394`, `6903046`, `2901337`, `2901370`, `2901372`, `2902390`, `6903007`, `2902203`, `2901444`, `2901339`, `2901338`, `2901466`, `2901415`, `2901465`, `2902391`, `2902206`, `2901132`, `1902442`, `2902789`, `2903334`, `3902114`), filter by QC flags (1/2), interpolate to canonical 16-level depth grid (`[5, 20, ..., 1000] dbar`), clean unphysical outliers, and export to canonical wide-format CSV matrix for ML training and database ingestion.
+  - *Acceptance Criteria:* Wide-format CSV contains 34 distinct floats, clean 16 standard depths, and passes TEOS-10 static stability validation.
 
 ---
 
@@ -63,7 +63,7 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Acceptance Criteria:* Backpropagation through a deliberate density inversion produces a positive loss penalty $\mathcal{L}_{\text{stability}} > 0$.
 - [ ] **TASK-303: Build GPU-Prioritized Training & Artifact Export Script**
   - *Files:* `backend/scripts/train_model.py`
-  - *Description:* Train the Physics-Informed Bi-LSTM model on the canonical 30-float 4-year dataset (`argo_30floats_canonical.csv` across 16 standard depths) prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback. Use spatial/temporal sequence splits (21 train / 4–5 val / 4–5 test floats), apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
+  - *Description:* Train the Physics-Informed Bi-LSTM model on the canonical 34-float 4-year dataset (`argo_34floats_canonical.csv` across 16 standard depths) prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback. Use spatial/temporal sequence splits (24 train / 5 val / 5 test floats), apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
   - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ on temperature and $\le 0.052\text{ PSU}$ on salinity, and artifacts are saved to disk in $<45$ seconds on GPU.
 - [ ] **TASK-304: Implement Baseline Regressors (Persistence & Gradient Boosting)**
   - *Files:* `backend/scripts/train_baselines.py`, `backend/app/ml/baselines.py`

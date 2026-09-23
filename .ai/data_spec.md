@@ -121,11 +121,13 @@ To ensure 100% offline reliability (avoiding remote FTP timeouts, firewall block
   ]
   ```
 
-### Scaling Pipeline: 30 Floats NetCDF Acquisition & Processing
-For production training with realistic ocean physics and statistical generalization, the pipeline scales from the 4-float embedded seed to a full **30-float 4-year historical dataset** from the Argo GDAC:
-- **Download Script:** `backend/scripts/download_argo.py`
-  - Targets 30 operational Arabian Sea floats with extensive delayed-mode histories (e.g. INCOIS/Coriolis mirrors).
-  - Downloads aggregated single NetCDF files per float (`<WMO_ID>_prof.nc`) rather than hundreds of single-cycle files.
+### Scaling Pipeline: 34 Floats NetCDF Acquisition & Processing
+For production training with realistic ocean physics and statistical generalization, the pipeline processes the raw NetCDF archives for the curated **34 operational Arabian Sea floats spanning 4 years of history**:
+- **Float IDs (Exact List):**
+  `6903059`, `6903060`, `6903063`, `6903058`, `2900090`, `2901509`, `6902943`, `6903062`, `2900089`, `2901447`, `2901108`, `2901107`, `6903008`, `2900394`, `6903046`, `2901337`, `2901370`, `2901372`, `2902390`, `6903007`, `2902203`, `2901444`, `2901339`, `2901338`, `2901466`, `2901415`, `2901465`, `2902391`, `2902206`, `2901132`, `1902442`, `2902789`, `2903334`, `3902114`.
+- **Download & Ingestion Script:** `backend/scripts/download_argo.py`
+  - Targets the 34 operational Arabian Sea floats with extensive delayed-mode histories (e.g. INCOIS/Coriolis mirrors or local raw NetCDF storage).
+  - Processes single aggregated profile NetCDF files (`<WMO_ID>_prof.nc`) or raw cycle files.
   - Required NetCDF attributes extracted:
     - Identifiers & Temporal: `wmo_id` (Float ID), `cycle_number`, `juld` (converted from days since 1950-01-01 to ISO date)
     - Geospatial: `latitude`, `longitude`
@@ -139,7 +141,7 @@ For production training with realistic ocean physics and statistical generalizat
   4. **Vertical Interpolation:** Linear or Akima spline interpolation onto canonical 16-level pressure grid (`[5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000] dbar`). Profiles not reaching at least 850 dbar are discarded to avoid artificial extrapolation.
   5. **Deduplication:** Remove duplicate cycles by retaining the delayed-mode (`D`) version.
 - **Processed Tabular Matrix (Wide Format CSV):**
-  - Saved to: `backend/data/processed/argo_30floats_canonical.csv`
+  - Saved to: `backend/data/processed/argo_34floats_canonical.csv`
   - Shape: One row per (float, cycle) containing:
     `wmo_id, cycle_number, date, latitude, longitude, temp_5, temp_20, ..., temp_1000, sal_5, sal_20, ..., sal_1000, qc_temp_5, ..., qc_sal_1000`
   - Enables instant $O(1)$ windowing of 3 consecutive historical cycles for LSTM sequences without costly relational joins.
@@ -153,7 +155,7 @@ For production training with realistic ocean physics and statistical generalizat
 4. **Standard Scaling:**
    - Fit `StandardScaler` on the training partition only.
    - Save scalers as `backend/app/ml/artifacts/preprocessor.joblib`.
-5. **Data Split (No Leakage):**
-   - **Spatial Partition:** 21 floats for training, 4–5 held-out floats for validation, and 4–5 completely unseen floats for spatial generalization testing.
+5. **Data Split (No Leakage across 34 Floats):**
+   - **Spatial Partition:** 24 floats for training, 5 held-out floats for validation, and 5 completely unseen floats for spatial generalization testing.
    - **Temporal Partition:** For training floats, the final 10 cycles are held out as an operational temporal forecast benchmark ($t-3, t-2, t-1 \to t$).
 

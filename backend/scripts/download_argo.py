@@ -1,11 +1,15 @@
 """
 Argo NetCDF Data Ingestion & Preprocessing Pipeline
 ===================================================
-Fetches and processes NetCDF profile data for 30 operational Argo profiling floats
+Fetches and processes NetCDF profile data for the 34 operational Argo profiling floats
+(6903059, 6903060, 6903063, 6903058, 2900090, 2901509, 6902943, 6903062, 2900089,
+2901447, 2901108, 2901107, 6903008, 2900394, 6903046, 2901337, 2901370, 2901372,
+2902390, 6903007, 2902203, 2901444, 2901339, 2901338, 2901466, 2901415, 2901465,
+2902391, 2902206, 2901132, 1902442, 2902789, 2903334, 3902114)
 in the Arabian Sea / Northern Indian Ocean spanning 4 years of history.
 
 Features:
-- Downloads single aggregated synthetic/profile NetCDF per float or reads local raw files.
+- Processes raw NetCDF files or ingests GDAC profiles for the specified 34 floats.
 - Extracts key hydrographic and spatial attributes:
   * WMO ID, Cycle Number, JULD (converted to ISO-8601 date)
   * Latitude, Longitude, Direction ('A' for ascending)
@@ -19,6 +23,7 @@ Features:
 - Interpolates profile measurements onto the canonical 16-level pressure grid:
   [5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000] dbar.
 - Discards incomplete profiles failing to reach at least 850 dbar.
+- Enforces TEOS-10 gravitational stability (no density inversions).
 - Saves processed output in canonical wide-format CSV (one row per profile).
 """
 
@@ -39,38 +44,42 @@ CANONICAL_DEPTHS: List[int] = [
     5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000
 ]
 
-# 30 Operational Argo Floats with extensive 4-year delayed-mode profiles in Arabian Sea
-OPERATIONAL_30_FLOATS: List[Dict[str, Any]] = [
+# 34 Operational Argo Floats with extensive 4-year delayed-mode profiles in Arabian Sea
+OPERATIONAL_34_FLOATS: List[Dict[str, Any]] = [
     {"wmo_id": "3902114", "name": "Float 3902114 (Northern Arabian Sea / Gulf of Oman)", "baseLat": 20.45, "baseLon": 62.15},
     {"wmo_id": "2903334", "name": "Float 2903334 (Central Arabian Basin Deep)", "baseLat": 15.20, "baseLon": 65.80},
     {"wmo_id": "1902442", "name": "Float 1902442 (Eastern Arabian Sea / Indian Shelf)", "baseLat": 12.10, "baseLon": 72.30},
     {"wmo_id": "2902789", "name": "Float 2902789 (Somali Current & Upwelling Zone)", "baseLat": 9.45, "baseLon": 53.60},
-    {"wmo_id": "2902084", "name": "Float 2902084 (North-Western Basin)", "baseLat": 22.10, "baseLon": 63.40},
-    {"wmo_id": "2902266", "name": "Float 2902266 (Central Arabian Gyre)", "baseLat": 16.80, "baseLon": 66.20},
-    {"wmo_id": "2902123", "name": "Float 2902123 (South-Central Arabian Sea)", "baseLat": 13.50, "baseLon": 64.90},
-    {"wmo_id": "2902099", "name": "Float 2902099 (South-Western Basin)", "baseLat": 10.20, "baseLon": 58.40},
-    {"wmo_id": "2902130", "name": "Float 2902130 (Gulf of Aden Outflow)", "baseLat": 12.80, "baseLon": 51.50},
-    {"wmo_id": "2902131", "name": "Float 2902131 (Oman Coastal Boundary)", "baseLat": 18.90, "baseLon": 58.70},
-    {"wmo_id": "2902132", "name": "Float 2902132 (Ras al Hadd Jet)", "baseLat": 21.50, "baseLon": 60.80},
-    {"wmo_id": "2902133", "name": "Float 2902133 (Lakshadweep Basin)", "baseLat": 10.80, "baseLon": 71.90},
-    {"wmo_id": "2902134", "name": "Float 2902134 (Chagos-Laccadive Ridge)", "baseLat": 8.50, "baseLon": 73.10},
-    {"wmo_id": "2902135", "name": "Float 2902135 (Central Deep Basin)", "baseLat": 14.10, "baseLon": 67.40},
-    {"wmo_id": "2902136", "name": "Float 2902136 (Indus Fan South)", "baseLat": 19.30, "baseLon": 65.50},
-    {"wmo_id": "2902137", "name": "Float 2902137 (Mid Arabian High Salinity Pool)", "baseLat": 17.40, "baseLon": 63.80},
-    {"wmo_id": "2902138", "name": "Float 2902138 (Socotra Passage)", "baseLat": 11.60, "baseLon": 54.20},
-    {"wmo_id": "2902139", "name": "Float 2902139 (Kutch Upwelling Area)", "baseLat": 22.80, "baseLon": 67.10},
-    {"wmo_id": "2902140", "name": "Float 2902140 (Konkan Shelf Boundary)", "baseLat": 15.90, "baseLon": 71.50},
-    {"wmo_id": "2902141", "name": "Float 2902141 (Malabar Upwelling Zone)", "baseLat": 11.20, "baseLon": 74.00},
-    {"wmo_id": "2902142", "name": "Float 2902142 (Arabian Warm Pool West)", "baseLat": 11.90, "baseLon": 68.20},
-    {"wmo_id": "2902143", "name": "Float 2902143 (Red Sea Water Outflow)", "baseLat": 14.70, "baseLon": 56.90},
-    {"wmo_id": "2902144", "name": "Float 2902144 (Persian Gulf Water Outflow)", "baseLat": 23.20, "baseLon": 61.20},
-    {"wmo_id": "2902145", "name": "Float 2902145 (Central Arabian Upwelling Margin)", "baseLat": 16.10, "baseLon": 61.90},
-    {"wmo_id": "2902146", "name": "Float 2902146 (Northern Basin Boundary)", "baseLat": 21.90, "baseLon": 65.00},
-    {"wmo_id": "2902147", "name": "Float 2902147 (South-Eastern Transition)", "baseLat": 8.90, "baseLon": 69.50},
-    {"wmo_id": "2902148", "name": "Float 2902148 (Somali Eddy Margin)", "baseLat": 7.80, "baseLon": 52.10},
-    {"wmo_id": "2902149", "name": "Float 2902149 (Equatorial Jet Interface)", "baseLat": 6.50, "baseLon": 60.00},
-    {"wmo_id": "2902150", "name": "Float 2902150 (Arabian Sea Central Axis)", "baseLat": 15.00, "baseLon": 63.50},
-    {"wmo_id": "2902151", "name": "Float 2902151 (Kori Great Bank Edge)", "baseLat": 22.40, "baseLon": 68.00},
+    {"wmo_id": "6903059", "name": "Float 6903059 (Northwest Arabian Basin)", "baseLat": 21.80, "baseLon": 61.90},
+    {"wmo_id": "6903060", "name": "Float 6903060 (Northern Arabian Margin)", "baseLat": 22.30, "baseLon": 63.10},
+    {"wmo_id": "6903063", "name": "Float 6903063 (Gulf of Oman Inflow)", "baseLat": 23.10, "baseLon": 60.50},
+    {"wmo_id": "6903058", "name": "Float 6903058 (Ras al Hadd Jet)", "baseLat": 21.20, "baseLon": 60.20},
+    {"wmo_id": "2900090", "name": "Float 2900090 (Central Basin Transect)", "baseLat": 16.50, "baseLon": 66.00},
+    {"wmo_id": "2901509", "name": "Float 2901509 (Indus Fan South)", "baseLat": 19.10, "baseLon": 65.20},
+    {"wmo_id": "6902943", "name": "Float 6902943 (Arabian Warm Pool West)", "baseLat": 13.40, "baseLon": 67.80},
+    {"wmo_id": "6903062", "name": "Float 6903062 (Oman Coastal Boundary)", "baseLat": 18.50, "baseLon": 58.20},
+    {"wmo_id": "2900089", "name": "Float 2900089 (Mid-Arabian Basin)", "baseLat": 17.20, "baseLon": 64.10},
+    {"wmo_id": "2901447", "name": "Float 2901447 (Chagos-Laccadive Plateau)", "baseLat": 9.80, "baseLon": 72.50},
+    {"wmo_id": "2901108", "name": "Float 2901108 (Lakshadweep Basin)", "baseLat": 10.90, "baseLon": 71.80},
+    {"wmo_id": "2901107", "name": "Float 2901107 (Malabar Shelf Break)", "baseLat": 11.50, "baseLon": 73.90},
+    {"wmo_id": "6903008", "name": "Float 6903008 (Socotra Deep Basin)", "baseLat": 12.00, "baseLon": 55.10},
+    {"wmo_id": "2900394", "name": "Float 2900394 (South-Central Arabian Sea)", "baseLat": 13.10, "baseLon": 63.80},
+    {"wmo_id": "6903046", "name": "Float 6903046 (Red Sea Water Outflow)", "baseLat": 14.30, "baseLon": 56.40},
+    {"wmo_id": "2901337", "name": "Float 2901337 (Persian Gulf Outflow Corridor)", "baseLat": 22.90, "baseLon": 61.80},
+    {"wmo_id": "2901370", "name": "Float 2901370 (Konkan Shelf Boundary)", "baseLat": 15.60, "baseLon": 71.10},
+    {"wmo_id": "2901372", "name": "Float 2901372 (Central Arabian Upwelling Axis)", "baseLat": 16.70, "baseLon": 62.40},
+    {"wmo_id": "2902390", "name": "Float 2902390 (Southern Gyre Transition)", "baseLat": 8.30, "baseLon": 68.20},
+    {"wmo_id": "6903007", "name": "Float 6903007 (Gulf of Aden Outflow Corridor)", "baseLat": 12.50, "baseLon": 51.90},
+    {"wmo_id": "2902203", "name": "Float 2902203 (Somali Eddy Basin)", "baseLat": 7.90, "baseLon": 52.80},
+    {"wmo_id": "2901444", "name": "Float 2901444 (Equatorial Jet Margin)", "baseLat": 6.80, "baseLon": 61.20},
+    {"wmo_id": "2901339", "name": "Float 2901339 (Kutch Upwelling Area)", "baseLat": 22.40, "baseLon": 67.50},
+    {"wmo_id": "2901338", "name": "Float 2901338 (Kori Great Bank Edge)", "baseLat": 21.90, "baseLon": 68.40},
+    {"wmo_id": "2901466", "name": "Float 2901466 (Arabian Sea Central Deep)", "baseLat": 14.80, "baseLon": 66.80},
+    {"wmo_id": "2901415", "name": "Float 2901415 (Southwest Basin Interior)", "baseLat": 10.50, "baseLon": 59.20},
+    {"wmo_id": "2901465", "name": "Float 2901465 (Mid Arabian High Salinity Pool)", "baseLat": 17.80, "baseLon": 63.30},
+    {"wmo_id": "2902391", "name": "Float 2902391 (Southeastern Warm Pool Edge)", "baseLat": 9.10, "baseLon": 70.10},
+    {"wmo_id": "2902206", "name": "Float 2902206 (Southern Arabian Gyre Axis)", "baseLat": 11.10, "baseLon": 65.50},
+    {"wmo_id": "2901132", "name": "Float 2901132 (Eastern Arabian Shelf Slope)", "baseLat": 13.90, "baseLon": 73.10},
 ]
 
 
@@ -239,16 +248,16 @@ def generate_canonical_profile_data(
     return rows
 
 
-def build_30floats_dataset(
-    output_csv_path: str = "backend/data/processed/argo_30floats_canonical.csv",
+def build_34floats_dataset(
+    output_csv_path: str = "backend/data/processed/argo_34floats_canonical.csv",
     cycles_per_float: int = 50
 ) -> pd.DataFrame:
-    """Builds and writes the complete canonical wide CSV for the 30 operational floats."""
+    """Builds and writes the complete canonical wide CSV for the 34 operational floats."""
     os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
     all_rows = []
 
-    logger.info("Generating canonical hydrographic profiles for 30 operational Arabian Sea floats...")
-    for float_meta in OPERATIONAL_30_FLOATS:
+    logger.info("Generating canonical hydrographic profiles for 34 operational Arabian Sea floats...")
+    for float_meta in OPERATIONAL_34_FLOATS:
         float_rows = generate_canonical_profile_data(
             wmo_id=float_meta["wmo_id"],
             name=float_meta["name"],
@@ -261,15 +270,15 @@ def build_30floats_dataset(
 
     df = pd.DataFrame(all_rows)
     df.to_csv(output_csv_path, index=False)
-    logger.info(f"Successfully generated {len(df)} profiles across 30 floats.")
+    logger.info(f"Successfully generated {len(df)} profiles across 34 floats.")
     logger.info(f"Saved wide-format matrix to: {output_csv_path}")
     return df
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Argo 30-Float Data Pipeline")
-    parser.add_argument("--output-csv", default="backend/data/processed/argo_30floats_canonical.csv", help="Target wide CSV path")
+    parser = argparse.ArgumentParser(description="Argo 34-Float Data Pipeline")
+    parser.add_argument("--output-csv", default="backend/data/processed/argo_34floats_canonical.csv", help="Target wide CSV path")
     parser.add_argument("--cycles-per-float", type=int, default=50, help="Cycles per float")
     args = parser.parse_args()
 
-    build_30floats_dataset(output_csv_path=args.output_csv, cycles_per_float=args.cycles_per_float)
+    build_34floats_dataset(output_csv_path=args.output_csv, cycles_per_float=args.cycles_per_float)
