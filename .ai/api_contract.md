@@ -34,7 +34,7 @@ This document serves as the **single source of truth** between the React fronten
 ---
 
 ### 2.2 GET `/api/floats`
-- **Description:** Returns the catalog of active floats in the Arabian Sea with base coordinates and cycle lists.
+- **Description:** Returns the catalog of active floats in the Arabian Sea with base coordinates and cycle lists (returns the 4 reference floats in offline seed mode, or all 30 operational floats across 4 years of cycles when seeded from the canonical dataset).
 - **Response Schema:** Array of `FloatSummary`:
   ```json
   [

@@ -194,13 +194,20 @@ class ForecastLog(Base):
 ---
 
 ## 5. Seed Data Strategy
-The backend seed script (`backend/scripts/seed_db.py`) ingests data from the four operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`) via `backend/data/seed_reference_profiles.json`, populating all 35 historical cycles and 560 vertical level measurements in $<2$ seconds without external network dependencies.
+The backend supports two data ingestion pathways:
+1. **Offline Reference Dataset (Rapid Dev & Unit Testing):**
+   The backend seed script (`backend/scripts/seed_db.py`) ingests the four operational Arabian Sea reference floats (`3902114`, `2903334`, `1902442`, `2902789`) via `backend/data/seed_reference_profiles.json`, populating all 35 historical cycles and 560 standardized vertical level measurements in $<2$ seconds without external network dependencies.
+2. **Operational 30-Float 4-Year Canonical Dataset (Production ML & Full Sea Coverage):**
+   The pipeline script (`backend/scripts/download_argo.py`) processes NetCDF data across 30 operational Arabian Sea floats over 4 years of historical cycles (~1,500 total profiles and 24,000 depth levels at 16 canonical pressure depths: 5 to 1000 dbar) into `backend/data/processed/argo_30floats_canonical.csv`. The seeder can optionally ingest this wide CSV into SQLite/PostgreSQL with `--canonical-csv backend/data/processed/argo_30floats_canonical.csv`.
 
 Commands to seed:
 ```bash
-# For local SQLite:
+# 1. Fast offline reference seed (4 floats, 35 cycles, default):
 python backend/scripts/seed_db.py --db-url "sqlite:///./backend/data/floatchat.db"
 
-# For local PostgreSQL:
+# 2. Ingest 30-float 4-year canonical dataset into database:
+python backend/scripts/seed_db.py --canonical-csv backend/data/processed/argo_30floats_canonical.csv --db-url "sqlite:///./backend/data/floatchat.db"
+
+# 3. For local PostgreSQL:
 python backend/scripts/seed_db.py --db-url "postgresql://postgres:postgres@localhost:5432/floatchat"
 ```

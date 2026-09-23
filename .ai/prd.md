@@ -93,6 +93,7 @@ FloatChat solves this by binding physics validation, attribution saliency, and N
 ## 7. Machine Learning & Explainability Scope
 
 ### What is Being Predicted?
+- **Dataset Corpus:** 30 operational Arabian Sea / Northern Indian Ocean Argo floats with 4 years of historical profiles (~1,500 total cycles across seasonal monsoons).
 - **Target Variables:**
   - Discrete vertical Temperature profile: $\mathbf{T} = [T(z_1), T(z_2), \dots, T(z_{16})] \in \mathbb{R}^{16}$ where $z \in \{5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000\}\text{ dbar}$.
   - Discrete vertical Salinity profile: $\mathbf{S} = [S(z_1), S(z_2), \dots, S(z_{16})] \in \mathbb{R}^{16}$.
