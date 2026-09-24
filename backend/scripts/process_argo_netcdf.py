@@ -4,8 +4,15 @@ Argo NetCDF Processing Pipeline for FloatChat
 
 Processes raw NetCDF profiles from backend/data/raw/{WMO}/ into:
 1. Canonical wide-format CSV (argo_30floats_canonical.csv) for ML training
-2. Validates TEOS-10 static stability
+2. Validates TEOS-10 static stability (flagged via is_stable, never discarded)
 3. Computes derived quantities (σ_θ, N², MLD)
+
+Cleaning pipeline (per .ai/data_spec.md, upstream of interpolation):
+1. Mask Argo fill sentinels (>= 9999.0, <= -990.0) to NaN
+2. Keep QC flags 1/2, delayed-mode only
+3. Enforce hard physical bounds per measurement (T, S, PRES)
+4. PCHIP-interpolate to 16 standard depths; discard cycle if ANY
+   interpolated level is NaN or out of bounds
 """
 import sys
 from pathlib import Path
@@ -31,6 +38,23 @@ STANDARD_DEPTHS = np.array([5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 60
 
 # QC flags to keep (1=good, 2=probably good)
 GOOD_QC = {1, 2}
+
+# Argo fill sentinels and hard physical bounds (per .ai/data_spec.md cleaning rules)
+SENTINEL_HIGH = 9999.0
+SENTINEL_LOW = -990.0
+TEMP_BOUNDS = (-2.0, 35.0)
+SAL_BOUNDS = (30.0, 42.0)
+PRES_BOUNDS = (0.0, 2000.0)
+
+
+def mask_sentinels(arr: np.ndarray) -> np.ndarray:
+    """Mask Argo fill sentinels (99999.0, 9999.0, -999.0, anything <= -990.0) to NaN.
+
+    Must run BEFORE interpolation so sentinels cannot leak into good levels.
+    """
+    arr = np.asarray(arr, dtype=float)
+    bad = (arr >= SENTINEL_HIGH) | (arr <= SENTINEL_LOW) | np.isnan(arr)
+    return np.where(bad, np.nan, arr)
 
 
 def interp_to_standard_depths(pres: np.ndarray, temp: np.ndarray, sal: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -169,32 +193,52 @@ def process_netcdf_file(nc_path: Path) -> List[Dict]:
             sal = ds.PSAL.values[prof_idx] if 'PSAL' in ds else np.array([])
             temp_qc = ds.TEMP_QC.values[prof_idx] if 'TEMP_QC' in ds else np.array([])
             sal_qc = ds.PSAL_QC.values[prof_idx] if 'PSAL_QC' in ds else np.array([])
-            
+
+            # Step 1: mask fill sentinels BEFORE any calculation (never interpolate them)
+            pres = mask_sentinels(pres)
+            temp = mask_sentinels(temp)
+            sal = mask_sentinels(sal)
+
             # Decode QC bytes to int
             def _decode_qc(qc_arr):
                 if qc_arr.dtype.kind in ('S', 'U'):  # string/bytes
                     return np.array([int(x.decode()) if isinstance(x, bytes) else int(x) for x in qc_arr])
                 return qc_arr.astype(int)
-            
+
             temp_qc = _decode_qc(temp_qc)
             sal_qc = _decode_qc(sal_qc)
-            
-            # Quality filtering
+
+            # Quality filtering (QC 1/2 only)
             good_mask = np.ones(len(pres), dtype=bool)
             if len(temp_qc) == len(pres):
                 good_mask &= np.isin(temp_qc, list(GOOD_QC))
             if len(sal_qc) == len(pres):
                 good_mask &= np.isin(sal_qc, list(GOOD_QC))
-            
+
             pres, temp, sal = pres[good_mask], temp[good_mask], sal[good_mask]
-            
+
+            # Step 2: hard physical bounds per measurement (drop contaminated levels)
+            in_bounds = (
+                np.isfinite(pres) & np.isfinite(temp) & np.isfinite(sal)
+                & (temp >= TEMP_BOUNDS[0]) & (temp <= TEMP_BOUNDS[1])
+                & (sal >= SAL_BOUNDS[0]) & (sal <= SAL_BOUNDS[1])
+                & (pres > PRES_BOUNDS[0]) & (pres <= PRES_BOUNDS[1])
+            )
+            pres, temp, sal = pres[in_bounds], temp[in_bounds], sal[in_bounds]
+
             if len(pres) < 10:
                 continue
-            
+
             # Interpolate to standard depths
             temp_interp, sal_interp = interp_to_standard_depths(pres, temp, sal)
-            
-            if np.all(np.isnan(temp_interp)) or np.all(np.isnan(sal_interp)):
+
+            # Step 3: post-interpolation boundary check — ALL 16 levels must be
+            # finite and strictly inside physical bounds, else discard the cycle
+            if (
+                np.isnan(temp_interp).any() or np.isnan(sal_interp).any()
+                or (temp_interp < TEMP_BOUNDS[0]).any() or (temp_interp > TEMP_BOUNDS[1]).any()
+                or (sal_interp < SAL_BOUNDS[0]).any() or (sal_interp > SAL_BOUNDS[1]).any()
+            ):
                 continue
             
             # Compute TEOS-10 physics

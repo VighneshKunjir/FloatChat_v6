@@ -53,19 +53,19 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 3: Machine Learning Model & Training Pipeline
-- [ ] **TASK-301: Implement Physics-Informed Bi-LSTM PyTorch Model**
+- [x] **TASK-301: Implement Physics-Informed Bi-LSTM PyTorch Model**
   - *Files:* `backend/app/ml/model.py`
   - *Description:* Define the 2-layer Bi-LSTM with dropout ($p=0.2$) and dual linear projection heads for Temperature and Salinity. Implement automatic GPU (`cuda`/`mps`) device binding.
   - *Acceptance Criteria:* Forward pass on tensor of shape `(32, 3, 32)` outputs two tensors of shape `(32, 16)`.
-- [ ] **TASK-302: Implement Physics-Constrained Loss Function**
+- [x] **TASK-302: Implement Physics-Constrained Loss Function**
   - *Files:* `backend/app/ml/loss.py`
   - *Description:* Implement composite loss $\mathcal{L} = \text{MSE}(T) + 2.5\,\text{MSE}(S) + 10.0\,\mathcal{L}_{\text{stability}} + 1.5\,\mathcal{L}_{\text{therm}}$ as specified in `.ai/ml_spec.md`.
   - *Acceptance Criteria:* Backpropagation through a deliberate density inversion produces a positive loss penalty $\mathcal{L}_{\text{stability}} > 0$.
 - [ ] **TASK-303: Build GPU-Prioritized Training & Artifact Export Script**
   - *Files:* `backend/scripts/train_model.py`
   - *Description:* Train model prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback on Arabian Sea float sequence splits, apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
-  - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ and artifacts are saved to disk in $<45$ seconds on GPU.
-- [ ] **TASK-304: Implement Baseline Regressors (Persistence & Gradient Boosting)**
+  - *Acceptance Criteria (recalibrated per ADR-009):* Test temp RMSE $\le 0.50^\circ\text{C}$ ($\ge 5\%$ better than persistence on identical splits), sal RMSE $\le 0.11\text{ PSU}$, thermocline RMSE $\le 0.75^\circ\text{C}$, inversion rate $\le 1.0\%$; artifacts saved to disk ($<45$ seconds on GPU retained as directional target).
+- [x] **TASK-304: Implement Baseline Regressors (Persistence & Gradient Boosting)**
   - *Files:* `backend/scripts/train_baselines.py`, `backend/app/ml/baselines.py`
   - *Description:* Train and benchmark standard Persistence ($t-1$) and Gradient Boosting (`HistGradientBoostingRegressor` or `XGBoost`) models on the same sequence splits. Generate benchmark comparison metrics (`metrics_comparison`) matching `ModelMetric[]` in `src/types.ts`.
   - *Acceptance Criteria:* Persistence and Gradient Boosting evaluation metrics match Table in `.ai/ml_spec.md` and are serialized to `backend/app/ml/artifacts/baseline_metrics.json`.

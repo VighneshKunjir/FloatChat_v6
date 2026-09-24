@@ -1,6 +1,6 @@
 # FloatChat: Current System State
 
-*Last updated: 2026-09-23*
+*Last updated: 2026-09-24*
 
 ---
 
@@ -18,6 +18,10 @@ The next major architectural milestone is migrating the backend calculations int
 **TASK-201 Complete**: TEOS-10 Physics Engine (`backend/app/core/physics.py`) with gsw + NumPy fallback, computes σ_θ, ∂σ_θ/∂z, N², MLD, thermocline gradient. Acceptance criteria passed.
 
 **TASK-202 Complete**: Evidence-Link Matcher (`backend/app/core/evidence.py`) with cosine (75%) + Haversine spatial (25%) composite scoring. Returns top 3 citations with QC flag 1/2 and valid NetCDF paths.
+
+**TASK-301 Complete**: Physics-Informed Bi-LSTM (`backend/app/ml/model.py`) 2-layer Bi-LSTM with dual heads, auto device binding (cuda/mps/cpu).
+
+**TASK-302 Complete**: Physics-Constrained Loss (`backend/app/ml/loss.py`) with MSE + stability + thermocline penalties. Inverted profile correctly penalized.
 
 ---
 
@@ -38,7 +42,7 @@ The next major architectural milestone is migrating the backend calculations int
 | **Python FastAPI Backend** | `backend/` | **PHASE 0-1 DONE** | Directory structure, requirements, proxy configured. DB schema & seed done. Phases 2–6 in `.ai/tasks.md`. |
 | **Local SQLite/Postgres DB** | `backend/app/models/` | **DONE** | SQLAlchemy 2.0 models, Alembic migrations, seeded with 4 floats / 35 profiles / 560 levels. |
 | **Argo NetCDF Pipeline** | `backend/scripts/` | **DONE** | Downloader + processor → 8,738 profiles, 32 floats, canonical CSV at `backend/data/processed/argo_30floats_canonical.csv` |
-| **PyTorch Bi-LSTM Model** | `backend/app/ml/` | **TO BUILD** | Architecture specified in `.ai/ml_spec.md`. |
+| **PyTorch Bi-LSTM Model** | `backend/app/ml/` | **DONE** | 2-layer Bi-LSTM (569K params), dual heads, auto device, Captum wrapper. |
 
 ---
 
@@ -67,6 +71,6 @@ The next major architectural milestone is migrating the backend calculations int
 ---
 
 ## 5. Immediate Next Action
-Proceed to **Phase 2** in `.ai/tasks.md`:
-1. Implement TEOS-10 Thermodynamic Calculations with Fallback (TASK-201: `backend/app/core/physics.py`).
-2. Implement Evidence-Link Cosine Provenance Matcher (TASK-202: `backend/app/core/evidence.py`).
+Proceed to **Phase 3** in `.ai/tasks.md`:
+1. ~~TASK-303~~ **TRACKED OPEN** (pipeline + serving artifact done; recalibrated bar per ADR-009 still to earn: temp ≤0.50, therm ≤0.75).
+2. **TASK-304 DONE**: baselines trained on identical splits; `baseline_metrics.json` holds measured rows (persistence 0.544, GB 0.507, LSTM 0.5141).

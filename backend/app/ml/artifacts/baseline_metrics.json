@@ -1,0 +1,26 @@
+[
+  {
+    "model": "Persistence Baseline (t-1)",
+    "profile_rmse": 0.544,
+    "profile_mae": 0.3272,
+    "thermocline_rmse": 0.8586,
+    "deep_rmse": 0.1534,
+    "physical_violation_rate": 21.137
+  },
+  {
+    "model": "Gradient Boosting / Ridge",
+    "profile_rmse": 0.507,
+    "profile_mae": 0.311,
+    "thermocline_rmse": 0.8041,
+    "deep_rmse": 0.1443,
+    "physical_violation_rate": 23.928
+  },
+  {
+    "model": "FloatChat X-RAG (LSTM + MC Dropout)",
+    "profile_rmse": 0.5141,
+    "profile_mae": 0.3269,
+    "thermocline_rmse": 0.7939,
+    "deep_rmse": 0.1471,
+    "physical_violation_rate": 0.299
+  }
+]

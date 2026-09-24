@@ -74,6 +74,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
  
+## [TASK-304 Complete] - 2026-09-24
+### Added
+- **Baselines module** (`backend/app/ml/baselines.py`): persistence (t-1), per-depth GB via `MultiOutputRegressor` (parallel), shared `profile_metrics()` emitting the exact `metrics_comparison` schema.
+- **Baseline runner** (`backend/scripts/train_baselines.py`): identical test windows to training (seed 42), LSTM row re-evaluated from saved artifacts.
+- **`baseline_metrics.json`**: 3 measured rows (persistence 0.544/21.1%, GB 0.507/23.9%, LSTM 0.5141/0.30%).
+
+### Verified
+- All rows computed on identical 1,003 test windows (5 test floats); LSTM row matches `metadata.json` (0.5141).
+- Qualitative pattern matches spec table (GB wins RMSE, LSTM wins physics + thermocline); absolute values differ — shipped measured per Data Authenticity rule ([RESOLVED-005]).
+
+---
+
+## [Modeling Iteration + Target Recalibration] - 2026-09-24
+### Fixed
+- **Physics-loss units bug** (`backend/app/ml/loss.py`): TEOS-10 polynomial now denormalizes predictions to physical units first (it previously ran on standardized values) — inversions 36.5% → 0.225%, RMSE flat.
+- **Temporal-split diagnostic** (`--split-mode temporal`): last-10-cycle holdout scores 1.03 C (worse) — recent cycles are harder; spatial protocol retained as primary.
+
+### Changed
+- **Recalibrated acceptance targets** (ADR-009, user-directed): temp ≤0.50 C (≥5% over persistence), sal ≤0.11 PSU, thermocline ≤0.75 C, inversions ≤1.0%. `ml_spec.md` table + TASK-303 updated; 0.23 C kept as stretch goal.
+- **Serving artifact**: LR 3e-4 run (test 0.5141 C / sal 0.1062 / therm 0.7939 / inv 0.299%).
+
+### Experiment record
+- E1 basin-only: 0.5668 (worse — diversity helps). E2 LR sweep: 1e-3 → 0.5127, 3e-4 → 0.5141/inv 0.30%, 3e-3 → 0.5225. RMSE flat across LR; physics best at low LR.
+
+---
+
+## [50-Float Scaling + Retrain] - 2026-09-24
+### Added
+- **16 tier-2 floats** (global-index ranks 31-46, verified DACs) downloaded to `backend/data/raw` → 50 floats / 16,511 NetCDF files. Downloader supports comma-separated `--float` and extended `TARGET_FLOATS`.
+- **Regenerated clean CSV**: 9,680 profiles × 47 floats (2901431/2901447/2901466 excluded — fleet-wide PSAL_QC=4 salinity failure, correctly dropped per QC 1/2 rule), 100% in-bounds, 83.1% stable.
+
+### Verified
+- Retrain (CPU, 178s, 7,357 train windows, early stop ep 45): test temp 0.5127 C, sal 0.1065 PSU, therm 0.8035 C, inversions 1.6%; val stable at 0.64-0.72.
+- Persistence on identical splits: temp 0.5440 C — model beats persistence on all metrics (+6% temp, +11% sal). TASK-303 target (≤0.23 C) still open.
+
+---
+
+## [Processor Hardening + Stratified Retrain] - 2026-09-24
+### Fixed
+- **Upstream cleaning** (`backend/scripts/process_argo_netcdf.py`): fill-sentinel masking pre-interpolation, hard physical bounds per measurement, cycle discard on any out-of-bounds/NaN interpolated level, stability flagged not dropped.
+- **Stratified domain-aware splits** (`backend/scripts/train_model.py`): Arctic 69030xx distributed across train/val, all-Arabian test, seed 42, recorded in `metadata.json`.
+- **Regenerated canonical CSV** (old file deleted): 6,256 profiles × 32 floats, 100% train-time retention (was 6,256/8,738). Arctic counts corrected (e.g. 6903058: 500 → 13) — prior counts were sentinel-contaminated.
+
+### Verified
+- Retrain (CPU, 52s, early stop ep 21): test temp 0.5467 C, sal 0.1193 PSU, therm 0.7854 C, inversions 29.7%.
+- Persistence on identical splits: temp 0.5386 C — model at parity, TASK-303 target (≤0.23 C) still open.
+
+---
+
+## [TASK-302 Complete] - 2026-09-24
+### Added
+- **Physics-Constrained Loss** (`backend/app/ml/loss.py`): Composite loss with MSE(T) + 2.5*MSE(S) + 10.0*L_stability + 1.5*L_therm.
+- **Stability penalty**: Differentiable ∂σ_θ/∂z computation penalizing density inversions.
+- **Thermocline loss**: Gradient matching at 75-150 dbar.
+- **Differentiable TEOS-10**: Polynomial σ_θ approximation for backprop.
+
+### Verified
+- Normal profile stability loss: 0.0
+- Inverted profile stability loss: 0.005202 (>0, correctly penalized)
+- `loss.backward()` on inverted profile yields finite non-zero temp gradients (grad norm 0.040026)
+- Loss components dict returned for logging
+
+---
+ 
+## [TASK-301 Complete] - 2026-09-24
+### Added
+- **Physics-Informed Bi-LSTM** (`backend/app/ml/model.py`): 2-layer Bi-LSTM (128 hidden, bidirectional) with dual heads.
+- **Automatic device binding**: cuda > mps > cpu priority.
+- **SingleOutputModelWrapper**: For Captum Integrated Gradients attribution.
+- **569K parameters**, forward pass (32, 3, 32) → (32, 16) × 2.
+
+### Verified
+- `python -m app.ml.model` → Input (32, 3, 32), Temp/Sal outputs (32, 16)
+- Device auto-selection: CUDA > MPS > CPU
+- Wrapper extracts single scalar for Captum
+
+---
+ 
 ## [TASK-202 Complete] - 2026-09-24
 ### Added
 - **Evidence-Link Matcher** (`backend/app/core/evidence.py`): Cosine similarity (75%) + Haversine spatial (25%) composite scoring.

@@ -12,3 +12,4 @@ coverage/
 !.env.example
 __pycache__/
 *.pyc
+arabian_sea_top60_floats.txt
