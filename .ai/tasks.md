@@ -41,11 +41,11 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 2: Core Physics Engine & Diagnostic Algorithms
-- [ ] **TASK-201: Implement TEOS-10 Thermodynamic Calculations with Fallback**
+- [x] **TASK-201: Implement TEOS-10 Thermodynamic Calculations with Fallback**
   - *Files:* `backend/app/core/physics.py`
   - *Description:* Implement potential density $\sigma_\theta$, static gravitational stability $\partial\sigma_\theta / \partial z$, Brunt-Väisälä buoyancy frequency $N^2$, and Mixed Layer Depth (MLD) using `gsw.sigma0` with an analytical NumPy polynomial fallback if `gsw` C-extensions are missing.
   - *Acceptance Criteria:* A profile with temperature $[28, 27, \dots, 7]$ and salinity $[36.5, 36.4, \dots, 35.2]$ returns `is_gravitationally_stable = True` and zero stability violations under both `gsw` and fallback mode.
-- [ ] **TASK-202: Implement Evidence-Link Cosine Provenance Matcher**
+- [x] **TASK-202: Implement Evidence-Link Cosine Provenance Matcher**
   - *Files:* `backend/app/core/evidence.py`
   - *Description:* Implement composite similarity scoring combining vector cosine similarity ($75\%$) and Haversine spatial proximity ($25\%$) against the stored database of profiles.
   - *Acceptance Criteria:* Given float `3902114` cycle `92`, matcher returns top 3 historical citations with QC flag 1/2 and valid NetCDF paths.

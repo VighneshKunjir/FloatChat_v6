@@ -61,6 +61,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
  
+## [TASK-201 Complete] - 2026-09-24
+### Added
+- **TEOS-10 Physics Engine** (`backend/app/core/physics.py`): Potential density σ_θ, static stability ∂σ_θ/∂z, Brunt-Väisälä N², MLD, thermocline gradient.
+- **Dual-engine support**: `gsw` (TEOS-10) with NumPy polynomial fallback when C-extensions unavailable.
+- **Validation function**: `validate_profile_physics()` returns full physics dict with stability flags.
+
+### Verified
+- `python -m app.core.physics` → Engine: gsw, Is stable: True, Violations: 0
+- Fallback mode test → Engine: fallback, Is stable: True, Violations: 0
+- Acceptance criteria profile (T=[28..7], S=[36.5..35.2]) passes with zero violations
+
+---
+ 
+## [TASK-202 Complete] - 2026-09-24
+### Added
+- **Evidence-Link Matcher** (`backend/app/core/evidence.py`): Cosine similarity (75%) + Haversine spatial (25%) composite scoring.
+- **Database integration**: Queries seeded profiles, filters by QC flag 1/2.
+- **Citation formatter**: Returns structured evidence with NetCDF paths, QC status, similarity scores.
+
+### Verified
+- `get_evidence_links('3902114', 92, db, 3)` → 3 citations with QC_PASS_FLAG_1
+- Citations include: profile_id, wmo_id, cycle, date, distance_km, cosine/spatial/composite scores
+- NetCDF paths: `raw_netcdf_source` (nodc_D2903334_120.nc) and `gdac_archive_path` (/ifremer/argo/dac/incois/...)
+- Composite scoring: 0.75 × cosine + 0.25 × spatial (exponential decay)
+
+---
+ 
 ## [Phase 1 Complete] - 2026-09-23
 ### Added
 - **SQLAlchemy 2.0 ORM Models** (`backend/app/models/schema.py`): `ArgoFloat`, `ArgoProfile`, `ProfileLevel`, `ForecastLog` with proper relationships, constraints, and indexes matching `.ai/database.md`.

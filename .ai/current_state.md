@@ -15,6 +15,10 @@ The next major architectural milestone is migrating the backend calculations int
 
 **TASK-104 Complete**: Argo NetCDF processing pipeline built (`backend/scripts/process_argo_netcdf.py`), canonical CSV created (`backend/data/processed/argo_30floats_canonical.csv`) with 8,738 profiles from 32 floats, 16 standard depths, TEOS-10 physics (σ_θ, N², MLD, stability).
 
+**TASK-201 Complete**: TEOS-10 Physics Engine (`backend/app/core/physics.py`) with gsw + NumPy fallback, computes σ_θ, ∂σ_θ/∂z, N², MLD, thermocline gradient. Acceptance criteria passed.
+
+**TASK-202 Complete**: Evidence-Link Matcher (`backend/app/core/evidence.py`) with cosine (75%) + Haversine spatial (25%) composite scoring. Returns top 3 citations with QC flag 1/2 and valid NetCDF paths.
+
 ---
 
 ## 2. Status by Functional Module
