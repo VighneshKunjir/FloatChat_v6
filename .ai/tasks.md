@@ -85,27 +85,27 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 5: FastAPI REST Endpoints & Schemas
-- [ ] **TASK-500: Implement Health Check Endpoint**
+- [x] **TASK-500: Implement Health Check Endpoint**
   - *Files:* `backend/app/api/health.py`
   - *Description:* Implement `GET /api/health` returning system status, service identity, and physics engine mode.
   - *Acceptance Criteria:* `curl http://localhost:8000/api/health` returns `200 OK` with JSON `{"status": "ok", "service": "FloatChat-XRAG-Forecasting-Engine"}`.
-- [ ] **TASK-501: Implement Pydantic Schemas**
+- [x] **TASK-501: Implement Pydantic Schemas**
   - *Files:* `backend/app/schemas/forecast.py`, `backend/app/schemas/chat.py`
   - *Description:* Write exact Pydantic schemas mirroring `.ai/api_contract.md`.
   - *Acceptance Criteria:* `ForecastResult.model_validate(sample_json)` validates with zero schema errors.
-- [ ] **TASK-502: Implement Floats & Profiles Endpoints**
+- [x] **TASK-502: Implement Floats & Profiles Endpoints**
   - *Files:* `backend/app/api/floats.py`
   - *Description:* Implement `GET /api/floats` and `GET /api/profiles/{wmoId}` querying SQLAlchemy.
   - *Acceptance Criteria:* `curl http://localhost:8000/api/floats` returns JSON array with all seeded operational floats.
-- [ ] **TASK-503: Implement Forecasting & Inference Endpoint**
+- [x] **TASK-503: Implement Forecasting & Inference Endpoint**
   - *Files:* `backend/app/api/forecast.py`
   - *Description:* Wire preprocessor, PyTorch LSTM inference, MC Dropout UQ, TEOS-10 validator, Captum XAI, and Evidence-Link matcher into `POST /api/forecast`. Persist forecast result into `forecast_logs` table.
   - *Acceptance Criteria:* `POST /api/forecast` returns a complete `ForecastResult` payload in $<350\text{ ms}$ and writes record to `forecast_logs`.
-- [ ] **TASK-504: Implement Conversational RAG Endpoint**
+- [x] **TASK-504: Implement Conversational RAG Endpoint**
   - *Files:* `backend/app/api/chat.py`
   - *Description:* Implement `POST /api/chat` with Gemini 2.5/3.8 Flash SDK call and automatic offline analytical synthesis fallback.
   - *Acceptance Criteria:* Submitting a prompt yields grounded oceanographic text citing the active WMO ID and NetCDF files with LaTeX formulas.
-- [ ] **TASK-505: Implement History Audit & JSON Export Endpoints**
+- [x] **TASK-505: Implement History Audit & JSON Export Endpoints**
   - *Files:* `backend/app/api/forecast.py`
   - *Description:* Implement `GET /api/history` returning recent forecast logs, and `GET /api/forecast/{id}/export-json` streaming the exact forecast payload as an attachment.
   - *Acceptance Criteria:* `curl http://localhost:8000/api/history` returns logged forecasts; export endpoint sets `Content-Disposition: attachment`.

@@ -1,0 +1,69 @@
+"""FloatChat FastAPI Application."""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
+
+from app.api import health, floats, forecast, chat
+from app.db.session import init_db
+
+
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    app = FastAPI(
+        title="FloatChat X-RAG Forecasting Engine",
+        version="1.2.0-IEEE-Access-Spec",
+        description="Explainable Evidence-Linked Argo Ocean Profile Forecasting & Physics Validation Engine",
+    )
+
+    # CORS for local development
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Include routers with manual prefix handling (workaround for FastAPI 0.141 include_router prefix bug)
+    def include_router_with_prefix(router, prefix: str):
+        for route in router.routes:
+            new_route = type(route)(
+                path=prefix + route.path,
+                endpoint=route.endpoint,
+                methods=route.methods,
+                name=route.name,
+                response_model=route.response_model,
+                response_class=route.response_class,
+                status_code=route.status_code,
+                summary=route.summary,
+                description=route.description,
+                tags=route.tags,
+                deprecated=route.deprecated,
+                operation_id=route.operation_id,
+            )
+            app.router.routes.append(new_route)
+
+    include_router_with_prefix(health.router, "/api")
+    include_router_with_prefix(floats.router, "/api")
+    include_router_with_prefix(forecast.router, "/api")
+    include_router_with_prefix(chat.router, "/api")
+
+    @app.on_event("startup")
+    async def startup():
+        """Initialize database on startup."""
+        init_db()
+
+    @app.get("/")
+    async def root():
+        """Root endpoint."""
+        return {
+            "message": "FloatChat X-RAG Forecasting Engine",
+            "version": "1.2.0-IEEE-Access-Spec",
+            "docs": "/docs",
+        }
+
+    return app
+
+
+app = create_app()

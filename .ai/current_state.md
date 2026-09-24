@@ -71,7 +71,8 @@ The next major architectural milestone is migrating the backend calculations int
 ---
 
 ## 5. Immediate Next Action
-Proceed to **Phase 5** in `.ai/tasks.md`:
-1. **TASK-401 DONE**: MC Dropout UQ service (`backend/app/core/uq.py`) implemented and tested.
-2. **TASK-402 DONE**: Captum Integrated Gradients XAI (`backend/app/ml/xai.py`) with SingleOutputModelWrapper, temporal/depth attribution.
+Proceed to **Phase 6** in `.ai/tasks.md`:
+1. **Phase 5 Complete**: All FastAPI endpoints implemented and tested (Health, Floats, Profiles, Forecast, Chat).
+2. **TASK-303 still tracked open** (pipeline + serving artifact done; recalibrated bar per ADR-009 still to earn: temp ≤0.50, therm ≤0.75).
+3. **Phase 6**: Frontend integration & mock retirement (TASK-601 to TASK-603).
 3. Implement FastAPI endpoints (TASK-500 to TASK-505).

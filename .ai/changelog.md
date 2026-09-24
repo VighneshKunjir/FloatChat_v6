@@ -115,7 +115,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - All outputs JSON-serializable.
 
 ---
+ 
+## [Phase 5 Complete] - 2026-09-24
+### Added
+- **FastAPI REST Endpoints** (`backend/app/api/`): All 5 core endpoints implemented and tested.
+  - `GET /api/health` - Service health check
+  - `GET /api/floats` - Float catalog with cycles
+  - `GET /api/profiles/{wmoId}` - Historical profiles for a float
+  - `POST /api/forecast` - Full forecast with UQ, TEOS-10, XAI, Evidence-Link
+  - `POST /api/chat` - Grounded conversational RAG with offline fallback
+- **Pydantic Schemas** (`backend/app/schemas/`): Complete API contract schemas matching `api_contract.md`.
+- **Database Integration**: SQLAlchemy queries replace in-memory mocks for floats/profiles.
+- **ML Pipeline Integration**: Preprocessor, model, UQ, XAI, evidence linker all wired into forecast endpoint.
 
+### Verified
+- All 5 endpoints return 200 OK with correct JSON schemas.
+- Float catalog: 4 floats returned.
+- Profiles: 11 historical profiles for float 3902114.
+- Forecast: 16 depth levels with uncertainty bounds.
+- Chat: Grounded response with citations and verified=true.
+
+---
+ 
 ## [Modeling Iteration + Target Recalibration] - 2026-09-24
 ### Fixed
 - **Physics-loss units bug** (`backend/app/ml/loss.py`): TEOS-10 polynomial now denormalizes predictions to physical units first (it previously ran on standardized values) — inversions 36.5% → 0.225%, RMSE flat.
