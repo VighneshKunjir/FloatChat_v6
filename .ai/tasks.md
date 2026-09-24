@@ -73,11 +73,11 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 4: Uncertainty Quantification & Explainability (XAI)
-- [ ] **TASK-401: Implement Monte Carlo Dropout UQ Service**
+- [x] **TASK-401: Implement Monte Carlo Dropout UQ Service**
   - *Files:* `backend/app/core/uq.py`
   - *Description:* Execute 50 forward passes with active dropout; calculate mean, standard deviation, 90% CI, and 95% CI per depth level.
   - *Acceptance Criteria:* Returns `UncertaintyBound[]` array where upper CI is strictly greater than mean, and thermocline depth exhibits higher variance than abyssal 1000m.
-- [ ] **TASK-402: Implement Captum Integrated Gradients Attribution with Target Wrapper**
+- [x] **TASK-402: Implement Captum Integrated Gradients Attribution with Target Wrapper**
   - *Files:* `backend/app/ml/xai.py`
   - *Description:* Implement `SingleOutputModelWrapper` and compute path-integrated gradients to quantify temporal weights across $t-3, t-2, t-1$ and cross-depth saliency matrix without multi-output crashes.
   - *Acceptance Criteria:* Sum of temporal attribution importance scores equals $1.00 \pm 0.01$.

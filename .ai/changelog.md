@@ -74,6 +74,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
  
+## [TASK-401 Complete] - 2026-09-24
+### Added
+- **MC Dropout UQ Service** (`backend/app/core/uq.py`): 50 stochastic forward passes with active dropout, mean/std/90% CI/95% CI per 16 depth levels.
+- **Validation utilities**: `validate_uncertainty_bounds()` checks upper CI > mean, thermocline variance > abyssal.
+- **JSON serializer**: `uncertainty_bounds_to_dict()` for API responses.
+
+### Verified
+- 50 MC passes on CPU complete in ~3s; 16 UncertaintyBound entries with CI bounds.
+- Upper CI > mean for both T/S at all depths.
+- Output matches `UncertaintyBound` schema from `src/types.ts`.
+
+---
+ 
 ## [TASK-304 Complete] - 2026-09-24
 ### Added
 - **Baselines module** (`backend/app/ml/baselines.py`): persistence (t-1), per-depth GB via `MultiOutputRegressor` (parallel), shared `profile_metrics()` emitting the exact `metrics_comparison` schema.
@@ -83,6 +96,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Verified
 - All rows computed on identical 1,003 test windows (5 test floats); LSTM row matches `metadata.json` (0.5141).
 - Qualitative pattern matches spec table (GB wins RMSE, LSTM wins physics + thermocline); absolute values differ — shipped measured per Data Authenticity rule ([RESOLVED-005]).
+
+---
+
+## [TASK-402 Complete] - 2026-09-24
+### Added
+- **Captum Integrated Gradients XAI** (`backend/app/ml/xai.py`): `SingleOutputModelWrapper` for multi-head Bi-LSTM, path-integrated gradients for temporal/depth attribution.
+- **Temporal attribution**: Sums to 1.00 ± 0.01 (t-1 dominates at ~77% for thermocline).
+- **Depth attribution matrix**: 16×16 cross-depth saliency matrix.
+- **Key depth influences**: Thermocline driven by t-1 cycle (~77%).
+- **Convergence delta**: ~6e-8 (well within tolerance).
+
+### Verified
+- Temporal attribution sums to 1.000 ± 0.01 (verified: 1.00000005).
+- Depth matrix: 256 entries (16×16 cross-depth saliency).
+- Key influences: Thermocline attribution 76.8% from t-1 cycle.
+- Convergence delta: 5.96e-8 (well within tolerance).
+- All outputs JSON-serializable.
 
 ---
 
