@@ -1,3 +1,8 @@
+/**
+ * @deprecated Legacy Node.js conversational service (TASK-603).
+ * In Phase 6, scientific dialogue and evidence grounding are handled by the Python FastAPI backend (backend/app/api/chat.py).
+ */
+
 import { GoogleGenAI } from '@google/genai';
 import { ForecastResult } from '../src/types.ts';
 

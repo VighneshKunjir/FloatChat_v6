@@ -1,3 +1,9 @@
+/**
+ * @deprecated Legacy in-memory mock data module (TASK-603).
+ * In Phase 6, all float and profile queries are served directly by the Python FastAPI backend
+ * via SQLAlchemy from backend/app/api/floats.py and the SQLite database at backend/data/floatchat.db.
+ */
+
 import { ArgoProfile, ArgoMeasurement } from '../src/types.ts';
 
 // Standard 16 depth levels from surface to 1000 dbar (oceanographic standard interpolation)

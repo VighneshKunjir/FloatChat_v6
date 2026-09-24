@@ -8,6 +8,7 @@ import { ChatPanel } from './components/ChatPanel.tsx';
 import { EvaluationBenchmarks } from './components/EvaluationBenchmarks.tsx';
 import { TrajectoryMap } from './components/TrajectoryMap.tsx';
 import { ForecastResult, ArgoProfile } from './types.ts';
+import { apiService } from './services/api.ts';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function App() {
@@ -24,8 +25,7 @@ export default function App() {
 
   // Load available floats on initial mount
   useEffect(() => {
-    fetch('/api/floats')
-      .then((res) => res.json())
+    apiService.getFloats()
       .then((data) => {
         setFloats(data);
         if (data.length > 0) {
@@ -44,25 +44,20 @@ export default function App() {
     setError(null);
     try {
       // 1. Run forecast
-      const forecastRes = await fetch('/api/forecast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wmoId: wmo, cycle })
-      });
-      if (!forecastRes.ok) throw new Error(`Forecast API failed: ${forecastRes.statusText}`);
-      const forecastData = await forecastRes.json();
+      const forecastData = await apiService.runForecast(wmo, cycle);
       setForecast(forecastData);
       if (forecastData.target_cycle && forecastData.target_cycle !== cycle) {
         setSelectedCycle(forecastData.target_cycle);
       }
 
       // 2. Fetch historical profiles for sequence display
-      const profilesRes = await fetch(`/api/profiles/${wmo}`);
-      if (profilesRes.ok) {
-        const profilesData = await profilesRes.json();
+      try {
+        const profilesData = await apiService.getProfiles(wmo);
         // Keep profiles prior to or up to cycle
         const prior = profilesData.filter((p: ArgoProfile) => p.cycle_number <= cycle).slice(-3);
         setHistoricalProfiles(prior);
+      } catch (profilesErr) {
+        console.error('Historical profiles retrieval error:', profilesErr);
       }
     } catch (err: any) {
       console.error('Forecast retrieval error:', err);

@@ -114,15 +114,15 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 
 ## Phase 6: Frontend Integration & Mock Retirement
 *(GATE: Phase 6 MUST NOT begin until all Phase 1–5 backend endpoints pass pytest)*
-- [ ] **TASK-601: Implement Frontend API Service Layer**
+- [x] **TASK-601: Implement Frontend API Service Layer**
   - *Files:* `src/services/api.ts`
   - *Description:* Create clean, strongly typed API client module matching `.ai/integration_map.md`.
   - *Acceptance Criteria:* `src/services/api.ts` compiles cleanly with `tsc --noEmit`.
-- [ ] **TASK-602: Wire `App.tsx` and Components to API Service**
+- [x] **TASK-602: Wire `App.tsx` and Components to API Service**
   - *Files:* `src/App.tsx`, `src/components/ChatPanel.tsx`
   - *Description:* Replace all direct `fetch()` calls with `apiService.getFloats()`, `apiService.runForecast()`, and `apiService.sendChatMessage()`.
   - *Acceptance Criteria:* The dashboard loads data dynamically over the API proxy without console errors.
-- [ ] **TASK-603: Deprecate In-Memory Server Mock Files**
+- [x] **TASK-603: Deprecate In-Memory Server Mock Files**
   - *Files:* `server/argoData.ts`, `server/forecaster.ts`
   - *Description:* Archive or deprecate the Node mock forecaster in favor of the FastAPI backend.
   - *Acceptance Criteria:* All user actions in the browser are served exclusively by the real Python backend.
@@ -130,11 +130,11 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 ---
 
 ## Phase 7: Testing, Physics Validation & Benchmark Verification
-- [ ] **TASK-701: Write Automated Backend Unit & Physics Tests**
+- [x] **TASK-701: Write Automated Backend Unit & Physics Tests** *(completed early: required by Phase 6 gate)*
   - *Files:* `backend/tests/test_physics.py`, `backend/tests/test_forecast.py`
   - *Description:* Write pytest test suite verifying static stability checks, MLD calculations, and REST endpoint contracts.
   - *Acceptance Criteria:* Running `pytest backend/tests` passes 100% green.
-- [ ] **TASK-702: Validate Full End-to-End User Experience**
+- [x] **TASK-702: Validate Full End-to-End User Experience**
   - *Description:* Step through User Flows 1, 2, and 3 from `.ai/prd.md` in the browser.
   - *Acceptance Criteria:* Dynamic hover readout, quick depth jumps, Evidence-Link viewer, KaTeX equations, and bathymetric map work flawlessly.
 

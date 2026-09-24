@@ -1,3 +1,9 @@
+/**
+ * @deprecated Legacy simulated forecasting engine (TASK-603).
+ * In Phase 6, all forecasting, Monte Carlo Dropout UQ, TEOS-10 physics checks, Captum XAI attributions,
+ * and Evidence-Link provenance are computed by the PyTorch Bi-LSTM backend (backend/app/api/forecast.py).
+ */
+
 import {
   ForecastResult,
   UncertaintyBound,

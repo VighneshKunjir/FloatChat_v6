@@ -116,6 +116,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
  
+## [TASK-603 & Phase 6 Complete] - 2026-09-25
+### Changed
+- **Node Server Proxying Enabled by Default** (`server.ts`): Set `USE_PYTHON_BACKEND` default to `true`. Mounted proxy before `express.json()` to preserve raw body streaming to FastAPI backend on port 8000.
+- **Legacy Mock Files Deprecated** (`server/argoData.ts`, `server/forecaster.ts`, `server/geminiService.ts`): Added `@deprecated` JSDoc annotations. All active user requests in the browser now route directly through the Python FastAPI ML backend.
+
+### Verified
+- `npm run lint` (`tsc --noEmit`) → 0 errors.
+- `npm run build` → Production bundle built cleanly.
+- `http://localhost:3000/api/health`, `/api/floats`, `/api/forecast`, `/api/chat` proxy transparently to FastAPI backend.
+
+---
+
+## [TASK-702 Complete] - 2026-09-25
+### Added
+- **Full End-to-End Browser Validation**: Validated all User Flows 1, 2, and 3 using Playwright subagent.
+- Verified dynamic depth hover readout card, quick depth jump pills, Evidence-Link GDAC citations, KaTeX LaTeX math equations, interactive bathymetric sea map with drift playback, and XAI saliency diagnostics.
+- Zero runtime errors or unhandled exceptions across all 5 navigation tabs.
+
+---
+
+## [TASK-602 Complete] - 2026-09-24
+### Changed
+- **Frontend wired to API service**: `App.tsx` (floats, forecast, profiles) and `ChatPanel.tsx` (chat) now use `apiService`; zero direct `fetch()` outside `src/services/api.ts` (verified by grep).
+
+### Verified
+- `tsc --noEmit` → zero errors.
+- Backend endpoints proven via `TestClient`; `/api` → `:8000` proxy block confirmed in `vite.config.ts`.
+- Browser console check deferred to user / TASK-702 (no browser in sandbox).
+
+---
+
+## [Phase 6 Gate + TASK-601] - 2026-09-24
+### Added
+- **Backend pytest suite** (`backend/tests/`, gate requirement): `test_physics.py` (5 tests: surface density, stability, inversion, MLD, acceptance profile) + `test_api_contract.py` (5 tests: health, floats, profiles, forecast schema, chat). `conftest.py` fixes `app.*` imports from repo root.
+- **Frontend API service** (`src/services/api.ts`): typed `apiService` (health, floats, profiles, forecast, chat) per `integration_map.md`.
+
+### Verified
+- `pytest backend/tests/ -v` → 10 passed (gate satisfied; TASK-701 closed early).
+- `tsc --noEmit` → zero errors with new service layer.
+
+---
+
 ## [Phase 5 Complete] - 2026-09-24
 ### Added
 - **FastAPI REST Endpoints** (`backend/app/api/`): All 5 core endpoints implemented and tested.

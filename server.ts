@@ -14,23 +14,42 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const USE_PYTHON_BACKEND = process.env.USE_PYTHON_BACKEND === 'true';
+const USE_PYTHON_BACKEND = process.env.USE_PYTHON_BACKEND !== 'false';
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+  // In Phase 6, proxy all /api/* requests to FastAPI backend (Port 8000)
+  // Mount proxy before express.json() so POST request streams are not consumed
+  if (USE_PYTHON_BACKEND) {
+    app.use('/api', createProxyMiddleware({
+      target: `${PYTHON_BACKEND_URL}/api`,
+      changeOrigin: true,
+      on: {
+        error: (err, req, res) => {
+          console.error(`[Proxy Error] Unable to connect to FastAPI backend at ${PYTHON_BACKEND_URL}:`, err.message);
+          if (res && 'writeHead' in res && !res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: {
+                code: 'BACKEND_UNAVAILABLE',
+                message: `Python FastAPI backend at ${PYTHON_BACKEND_URL} is unreachable. Ensure the FastAPI server is running with 'uvicorn app.main:app --port 8000 --app-dir backend'.`,
+                details: err.message
+              }
+            }));
+          }
+        }
+      }
+    }));
+    console.log(`[FloatChat Proxy] Forwarding /api/* to FastAPI backend at ${PYTHON_BACKEND_URL}/api`);
+  }
 
   app.use(express.json());
 
-  // If Python backend is enabled, proxy all /api/* requests to FastAPI
-  if (USE_PYTHON_BACKEND) {
-    app.use('/api', createProxyMiddleware({
-      target: PYTHON_BACKEND_URL,
-      changeOrigin: true,
-    }));
-    console.log(`[Proxy] Forwarding /api/* to ${PYTHON_BACKEND_URL}`);
-  } else {
+  if (!USE_PYTHON_BACKEND) {
+    console.warn('[FloatChat Legacy] Running with legacy Node mock routes (USE_PYTHON_BACKEND=false)');
     // API Routes (Node/Express mock implementation)
     // 1. Health check
     app.get('/api/health', (req, res) => {

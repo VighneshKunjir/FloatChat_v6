@@ -3,6 +3,7 @@ import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { ForecastResult, ChatMessage } from '../types.ts';
+import { apiService } from '../services/api.ts';
 import { Send, Sparkles, ShieldCheck, HelpCircle, Bot, User, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface ChatPanelProps {
@@ -61,21 +62,11 @@ What oceanographic query would you like to explore regarding **Float ${forecast.
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          wmoId: forecast.target_float_id,
-          cycle: forecast.target_cycle
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server returned ${res.status}`);
-      }
-
-      const data = await res.json();
+      const data = await apiService.sendChatMessage(
+        query,
+        forecast.target_float_id,
+        forecast.target_cycle
+      );
 
       const assistantMsg: ChatMessage = {
         id: `assist_${Date.now()}`,
