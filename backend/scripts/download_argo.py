@@ -95,6 +95,52 @@ def convert_juld_to_date(juld_days: float) -> str:
         return "2024-01-01"
 
 
+def sanitize_raw_measurements(
+    pressures: np.ndarray,
+    temperatures: np.ndarray,
+    salinities: np.ndarray,
+    qc_flags_temp: Optional[np.ndarray] = None,
+    qc_flags_sal: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Applies strict physical range bounds and masks Argo fill-value sentinels
+    prior to any interpolation.
+    
+    Physical bounds:
+      Pressure: [0.0, 2100.0] dbar
+      Temperature: [-2.0, 35.0] °C
+      Salinity: [30.0, 42.0] PSU (or >= 28.0 for polar waters)
+    """
+    p = np.array(pressures, dtype=float, copy=True)
+    t = np.array(temperatures, dtype=float, copy=True)
+    s = np.array(salinities, dtype=float, copy=True)
+
+    # 1. Mask fill-value sentinels (e.g. 99999.0, 9999.0, -999.0, <= -990.0)
+    sentinel_mask = (
+        np.isnan(p) | np.isnan(t) | np.isnan(s) |
+        (p >= 9990.0) | (t >= 9990.0) | (s >= 9990.0) |
+        (p <= -990.0) | (t <= -990.0) | (s <= -990.0)
+    )
+    p[sentinel_mask] = np.nan
+    t[sentinel_mask] = np.nan
+    s[sentinel_mask] = np.nan
+
+    # 2. Strict physical bounds filter
+    valid_mask = (
+        ~np.isnan(p) & ~np.isnan(t) & ~np.isnan(s) &
+        (p >= 0.0) & (p <= 2100.0) &
+        (t >= -2.0) & (t <= 35.0) &
+        (s >= 30.0) & (s <= 42.0)
+    )
+
+    if qc_flags_temp is not None:
+        valid_mask &= (qc_flags_temp <= 2)
+    if qc_flags_sal is not None:
+        valid_mask &= (qc_flags_sal <= 2)
+
+    return p[valid_mask], t[valid_mask], s[valid_mask]
+
+
 def interpolate_profile_to_canonical_levels(
     pressures: np.ndarray,
     temperatures: np.ndarray,
@@ -103,35 +149,18 @@ def interpolate_profile_to_canonical_levels(
     qc_flags_sal: Optional[np.ndarray] = None
 ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """
-    Interpolates irregular pressure levels onto canonical 16-level grid.
-    Returns (temp_16, sal_16, qc_temp_16, qc_sal_16) or None if depth coverage is insufficient.
+    Interpolates irregular pressure levels onto the canonical 16-level grid.
+    Returns (temp_16, sal_16, qc_temp_16, qc_sal_16) or None if depth coverage is
+    insufficient or if any interpolated value violates physical bounds.
     """
-    # Filter valid pairs
-    valid_mask = (
-        ~np.isnan(pressures) &
-        ~np.isnan(temperatures) &
-        ~np.isnan(salinities) &
-        (pressures >= 0) &
-        (pressures <= 2100) &
-        (temperatures >= -2.0) &
-        (temperatures <= 35.0) &
-        (salinities >= 28.0) &
-        (salinities <= 42.0)
+    p_clean, t_clean, s_clean = sanitize_raw_measurements(
+        pressures, temperatures, salinities, qc_flags_temp, qc_flags_sal
     )
-
-    if qc_flags_temp is not None:
-        valid_mask &= (qc_flags_temp <= 2)
-    if qc_flags_sal is not None:
-        valid_mask &= (qc_flags_sal <= 2)
-
-    p_clean = pressures[valid_mask]
-    t_clean = temperatures[valid_mask]
-    s_clean = salinities[valid_mask]
 
     if len(p_clean) < 8:
         return None
 
-    # Must reach shallow surface (< 25 dbar) and deep layer (>= 850 dbar)
+    # Must reach shallow surface (<= 25 dbar) and deep layer (>= 850 dbar)
     if np.min(p_clean) > 25.0 or np.max(p_clean) < 850.0:
         return None
 
@@ -147,10 +176,21 @@ def interpolate_profile_to_canonical_levels(
     t_unique = t_sorted[unique_idx]
     s_unique = s_sorted[unique_idx]
 
+    if len(p_unique) < 8:
+        return None
+
     # Interpolate to 16 canonical depths
     target_depths = np.array(CANONICAL_DEPTHS, dtype=float)
     t_interp = np.interp(target_depths, p_unique, t_unique)
     s_interp = np.interp(target_depths, p_unique, s_unique)
+
+    # Post-interpolation sanity check: all 16 levels must strictly satisfy physical ranges
+    if np.any(np.isnan(t_interp)) or np.any(np.isnan(s_interp)):
+        return None
+    if np.any(t_interp < -2.0) or np.any(t_interp > 35.0):
+        return None
+    if np.any(s_interp < 30.0) or np.any(s_interp > 42.0):
+        return None
 
     # QC flags for successfully interpolated levels are set to 1
     qc_t_interp = np.ones(len(CANONICAL_DEPTHS), dtype=int)

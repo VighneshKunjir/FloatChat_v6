@@ -75,6 +75,15 @@
 - `[RESOLVED-001]`: **Forecast Persistence:** Persist all run forecasts into the `forecast_logs` table via `POST /api/forecast`. Provide `GET /api/history` for audit and retrospective visualization.
 - `[RESOLVED-002]`: **Forecast Export Format:** Standard JSON export (`GET /api/forecast/{id}/export-json` or client-side download) is implemented now. CF-compliant NetCDF (`.nc`) export is logged under Future Scope.
 - `[RESOLVED-003]`: **Runtime Architecture:** Dual-mode in development (FastAPI on 8000, Vite on 3000 proxying `/api`). In production Docker, single FastAPI service serving the static `dist/` bundle on port 3000.
+- `[RESOLVED-004]`: **NetCDF Range Pre-Filtering & Arctic Split Stratification:** 
+  - *Context:* `train_model.py` had to drop rows violating physical ranges ($T \in [-2, 35]^\circ\text{C}$, $S \in [30, 42]\text{ PSU}$) because raw NetCDF files and interpolation leaked sentinels (`99999.0`, `-999.0`) into CSV files. Additionally, the 5 sub-polar / Arctic floats (`6903058`, `6903059`, `6903060`, `6903062`, `6903063`) caused high validation variance under unstratified spatial splits due to extreme hydrographic differences.
+  - *Resolution:*
+    1. Upstream sanitization (`sanitize_raw_measurements` in `download_argo.py` / `process_argo_netcdf.py`) masks sentinels ($\ge 9990$, $\le -990$) to `np.nan` and enforces strict bounds on raw and post-interpolated values.
+    2. Any cycle with unphysical levels after interpolation is discarded *before* writing to `argo_34floats_canonical.csv`, ensuring 100% of rows are retained during training.
+    3. Spatial splits use **Hydrographic Domain Stratification** (24 train / 5 val / 5 test):
+       - Sub-polar floats (`69030xx`): 3 in train, 1 in val, 1 in test.
+       - Tropical Arabian Sea floats (29 floats): 21 in train, 4 in val, 4 in test.
+       This prevents spatial domain shifts from inflating evaluation loss.
 
 ---
 

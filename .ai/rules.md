@@ -39,7 +39,11 @@
    $$\frac{\partial \sigma_\theta}{\partial z} \ge 0$$
    If an inference pass violates this condition, it must be flagged with `is_gravitationally_stable = False` and the exact violation count recorded.
 5. **Reproducibility & Random Seeds:** All stochastic operations (Monte Carlo dropout, train/val/test splits, baseline seeds) must use a fixed seed (`seed = 42`).
-6. **No Data Leakage & Dataset Partitioning:** Training is grounded on the canonical 34 operational Arabian Sea floats spanning 4 years of historical profile cycles discretized across the canonical 16 depth levels (`[5, 20, ..., 1000] dbar`). When splitting into training, validation, and test sets, splits must be performed at the **Float Platform Level (WMO ID)** (e.g. 24 train / 5 val / 5 test floats) and temporally (historical cycles $1 \dots N-10$ for training, final 10 cycles for temporal testing). Never mix cycles from the same float across train and test without temporal partitioning.
+6. **No Data Leakage & Hydrographic Stratified Partitioning:** Training is grounded on the canonical 34 operational floats spanning 4 years of historical profile cycles discretized across the canonical 16 depth levels (`[5, 20, ..., 1000] dbar`). When splitting into training, validation, and test sets, splits must be performed at the **Float Platform Level (WMO ID)** with **Hydrographic Domain Stratification** (24 train / 5 val / 5 test):
+   - Sub-polar floats (`6903058`, `6903059`, `6903060`, `6903062`, `6903063`): 3 in train, 1 in val (`6903062`), 1 in test (`6903058`).
+   - Tropical Arabian Sea floats (29 floats): 21 in train, 4 in val, 4 in test.
+   - For training floats, final 10 cycles are held out for temporal forecasting evaluation ($t-3, t-2, t-1 \to t$).
+   - Never mix cycles from the same float across train and test without temporal partitioning. Upstream NetCDF processing guarantees 100% valid physical rows ($T \in [-2, 35]^\circ\text{C}$, $S \in [30, 42]\text{ PSU}$).
 7. **Inference Latency Limit:** Inference, uncertainty calculation (50 passes), and XAI attribution have a directional target of under **350 ms** on CPU/GPU (pipeline correctness and zero density inversions take absolute precedence over micro-optimization on CPU). Never run training or parameter optimization inside request handlers.
 
 ---

@@ -63,8 +63,8 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
   - *Acceptance Criteria:* Backpropagation through a deliberate density inversion produces a positive loss penalty $\mathcal{L}_{\text{stability}} > 0$.
 - [ ] **TASK-303: Build GPU-Prioritized Training & Artifact Export Script**
   - *Files:* `backend/scripts/train_model.py`
-  - *Description:* Train the Physics-Informed Bi-LSTM model on the canonical 34-float 4-year dataset (`argo_34floats_canonical.csv` across 16 standard depths) prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback. Use spatial/temporal sequence splits (24 train / 5 val / 5 test floats), apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
-  - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ on temperature and $\le 0.052\text{ PSU}$ on salinity, and artifacts are saved to disk in $<45$ seconds on GPU.
+  - *Description:* Train the Physics-Informed Bi-LSTM model on the canonical 34-float 4-year dataset (`argo_34floats_canonical.csv` across 16 standard depths) prioritizing high-end GPU (`cuda`/`mps`) with CPU fallback. Use hydrographic domain stratified splits (24 train / 5 val / 5 test floats partitioning Arabian Sea and sub-polar floats). Due to upstream NetCDF sanitization, retain 100% of canonical CSV rows without dropped data. Apply early stopping, and serialize artifacts to `backend/app/ml/artifacts/model_weights.pt` and `preprocessor.joblib`.
+  - *Acceptance Criteria:* Test set RMSE $\le 0.23^\circ\text{C}$ on temperature and $\le 0.052\text{ PSU}$ on salinity, 100% rows kept from canonical CSV, and artifacts are saved to disk in $<45$ seconds on GPU.
 - [ ] **TASK-304: Implement Baseline Regressors (Persistence & Gradient Boosting)**
   - *Files:* `backend/scripts/train_baselines.py`, `backend/app/ml/baselines.py`
   - *Description:* Train and benchmark standard Persistence ($t-1$) and Gradient Boosting (`HistGradientBoostingRegressor` or `XGBoost`) models on the same sequence splits. Generate benchmark comparison metrics (`metrics_comparison`) matching `ModelMetric[]` in `src/types.ts`.

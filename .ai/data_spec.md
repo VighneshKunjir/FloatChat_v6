@@ -134,16 +134,20 @@ For production training with realistic ocean physics and statistical generalizat
     - Physical: Hydrostatic pressure in decibars (`PRES_ADJUSTED` or `PRES`), in-situ temperature (`TEMP_ADJUSTED` or `TEMP`), practical salinity (`PSAL_ADJUSTED` or `PSAL`)
     - Quality Flags: `TEMP_QC`, `PSAL_QC`, `PRES_QC`, `POSITION_QC`
     - Metadata: `DATA_MODE` (`D` / `A` preferred over `R`), `DIRECTION` (ascending `'A'` only)
-- **Cleaning & Discretization Rules:**
-  1. **Mask Missing Values:** Convert Argo fill value sentinels (`99999.0` / `9999.0`) to `NaN`.
+- **Cleaning & Discretization Rules (Strict Upstream Sanitization):**
+  1. **Mask Missing Values & Sentinels:** Convert Argo fill value sentinels (`>= 9990.0` or `<= -990.0`, including `99999.0` and `-999.0`) to `NaN` prior to any processing.
   2. **QC Flag Filtering:** Retain only measurements with QC flags `1` (Good) or `2` (Probably Good).
-  3. **Physical Range Bounds:** Filter out sensor spikes ($T \in [-2.0, 35.0]^\circ\text{C}$, $S \in [30.0, 42.0]\text{ PSU}$).
-  4. **Vertical Interpolation:** Linear or Akima spline interpolation onto canonical 16-level pressure grid (`[5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000] dbar`). Profiles not reaching at least 850 dbar are discarded to avoid artificial extrapolation.
+  3. **Physical Range Bounds:** Filter out sensor spikes prior to interpolation:
+     - Hydrostatic Pressure: $P \in [0.0, 2100.0]\text{ dbar}$
+     - In-situ Temperature: $T \in [-2.0, 35.0]^\circ\text{C}$
+     - Practical Salinity: $S \in [30.0, 42.0]\text{ PSU}$ (down to $28.0\text{ PSU}$ for sub-polar waters)
+  4. **Vertical Interpolation & Post-Validation:** Monotonic linear or Akima spline interpolation onto canonical 16-level pressure grid (`[5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000] dbar`). Profiles not reaching at least 850 dbar are discarded. All 16 interpolated levels are re-verified against physical bounds; any profile violating ranges is discarded before CSV export.
   5. **Deduplication:** Remove duplicate cycles by retaining the delayed-mode (`D`) version.
 - **Processed Tabular Matrix (Wide Format CSV):**
   - Saved to: `backend/data/processed/argo_34floats_canonical.csv`
   - Shape: One row per (float, cycle) containing:
     `wmo_id, cycle_number, date, latitude, longitude, temp_5, temp_20, ..., temp_1000, sal_5, sal_20, ..., sal_1000, qc_temp_5, ..., qc_sal_1000`
+  - All rows in this CSV are guaranteed valid and physically bounded, allowing training scripts (`train_model.py`) to retain 100% of rows without dropping data at runtime.
   - Enables instant $O(1)$ windowing of 3 consecutive historical cycles for LSTM sequences without costly relational joins.
 
 ---
@@ -155,7 +159,14 @@ For production training with realistic ocean physics and statistical generalizat
 4. **Standard Scaling:**
    - Fit `StandardScaler` on the training partition only.
    - Save scalers as `backend/app/ml/artifacts/preprocessor.joblib`.
-5. **Data Split (No Leakage across 34 Floats):**
-   - **Spatial Partition:** 24 floats for training, 5 held-out floats for validation, and 5 completely unseen floats for spatial generalization testing.
+5. **Hydrographic Domain Stratified Split (No Leakage across 34 Floats):**
+   - **Stratification Groups:**
+     - *Sub-polar Floats (5 floats):* `6903058`, `6903059`, `6903060`, `6903062`, `6903063`
+     - *Tropical Arabian Sea Floats (29 floats):* Remaining platforms in Arabian Basin, Gulf of Oman, and Somali Current
+   - **Spatial Partition (24 Train / 5 Val / 5 Test):**
+     - **Training Set (24 floats):** 21 Arabian Sea floats + 3 Sub-polar floats
+     - **Validation Set (5 floats):** 4 Arabian Sea floats + 1 Sub-polar float (`6903062`)
+     - **Spatial Test Set (5 floats):** 4 Arabian Sea floats + 1 Sub-polar float (`6903058`)
+     - Prevents spatial domain shifts from inflating validation/test loss variance while preserving Arctic floats per user direction.
    - **Temporal Partition:** For training floats, the final 10 cycles are held out as an operational temporal forecast benchmark ($t-3, t-2, t-1 \to t$).
 
