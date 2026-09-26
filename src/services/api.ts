@@ -43,7 +43,10 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wmoId, cycle })
     });
-    if (!res.ok) throw new Error(`Forecast computation failed: ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res, res.statusText);
+      throw new Error(`Forecast computation failed: ${detail}`);
+    }
     return res.json();
   },
 
@@ -53,9 +56,27 @@ export const apiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, wmoId, cycle })
     });
-    if (!res.ok) throw new Error(`Chat generation failed: ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res, res.statusText);
+      throw new Error(`Chat generation failed: ${detail}`);
+    }
     return res.json();
   }
 };
+
+async function parseErrorDetail(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json() as unknown;
+    if (typeof body === 'object' && body !== null) {
+      const record = body as Record<string, unknown>;
+      if (typeof record.detail === 'string' && record.detail) return record.detail;
+      const err = record.error as Record<string, unknown> | undefined;
+      if (err && typeof err.message === 'string' && err.message) return err.message;
+    }
+  } catch {
+    // Response body is not JSON - fall back to HTTP status text.
+  }
+  return fallback;
+}
 
 export type { ChatMessage };

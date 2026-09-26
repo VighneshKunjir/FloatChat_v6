@@ -245,6 +245,8 @@ def format_evidence_citation(match: Dict) -> Dict:
         'wmo_id': match['wmo_id'],
         'cycle': match['cycle'],
         'date': match['date'],
+        'latitude': match.get('latitude', 0.0),
+        'longitude': match.get('longitude', 0.0),
         'distance_km': round(match['distance_km'], 1),
         'cosine_similarity': round(match['cosine_similarity'], 4),
         'spatial_similarity': round(match['spatial_similarity'], 4),

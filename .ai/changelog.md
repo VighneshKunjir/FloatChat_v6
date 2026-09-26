@@ -295,6 +295,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [UI Bugfix Hardening] - 2026-09-25
+### Fixed
+- **Float catalog completeness** (`backend/app/api/floats.py`): `/api/floats` now returns all 47 seeded floats in stable WMO order (verified live). The "only 4 floats" symptom occurs when the UI talks to a backend seeded with only `seed_db.py` (4 reference floats) — canonical full seeding is `backend/scripts/seed_all_floats.py` (idempotent; DB holds 47 floats / 9,687 profiles).
+- **Early-cycle forecast 400** (`backend/app/api/forecast.py`, `src/components/ControlBar.tsx`, `src/services/api.ts`): backend 400 now names the offending cycle, its position, and the earliest forecastable cycle; cycle dropdown hides the first 3 non-forecastable cycles (`slice(3)`); `apiService` surfaces the backend `detail` string instead of bare "Bad Request".
+- **Blank evidence inspection modal** (`backend/app/api/forecast.py`, `backend/app/core/evidence.py`, `src/components/EvidenceLinkViewer.tsx`, `src/types.ts`): citations now include `provenance_chain` + 16 hydrated `measurements` + real lat/lon (previously `measurements: []`, no `provenance_chain`, lat/lon dropped by formatter); modal uses optional chaining with empty-state fallback.
+- **Repetitive chat answers** (`backend/app/api/chat.py`): offline synthesis now reads real observed levels from the DB and routes to 8 grounded intents (thermocline, salinity, TEOS-10 stability with LaTeX, UQ, XAI, evidence provenance, MLD, explicit-depth queries) plus a DB-backed default; Gemini attempted first when `GEMINI_API_KEY` is set, offline fallback otherwise. Fixed invalid `return {...}, 400` tuple → `HTTPException(400)`.
+- **Run Forecast feedback** (`src/App.tsx`, `src/components/ControlBar.tsx`): successful recompute stamps an "Updated HH:MM:SS" chip (button already spinners via `isLoading`); float dropdown label shows live float count.
+
+### Verified
+- `pytest backend/tests` → 10 passed; `tsc --noEmit` → 0 errors.
+- Live `TestClient`: cycle 1 → 400 with actionable message; cycle 92 → citation has `provenance_chain` + 16 measurements + real lat/lon; 8 sample chat queries → 8 distinct grounded answers (after stem fix for "stable").
+
+---
+
 ## Template for Future Changelog Entries
 ```markdown
 ## [X.Y.Z] - YYYY-MM-DD

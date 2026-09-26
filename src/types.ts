@@ -53,6 +53,7 @@ export interface EvidenceCitation {
   spatial_temporal_weight: number;
   qc_flag: number;
   raw_netcdf_file: string;
+  gdac_archive_path?: string;
   provenance_chain: {
     origin: string;
     archive_gdac: string;

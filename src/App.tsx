@@ -22,6 +22,8 @@ export default function App() {
   const [historicalProfiles, setHistoricalProfiles] = useState<ArgoProfile[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState<number>(0);
 
   // Load available floats on initial mount
   useEffect(() => {
@@ -46,6 +48,8 @@ export default function App() {
       // 1. Run forecast
       const forecastData = await apiService.runForecast(wmo, cycle);
       setForecast(forecastData);
+      setLastRefresh(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setRefreshCount((c) => c + 1);
       if (forecastData.target_cycle && forecastData.target_cycle !== cycle) {
         setSelectedCycle(forecastData.target_cycle);
       }
@@ -103,6 +107,8 @@ export default function App() {
         currentLat={forecast?.latitude}
         currentLon={forecast?.longitude}
         forecastDate={forecast?.forecast_date}
+        lastRefresh={lastRefresh}
+        refreshCount={refreshCount}
       />
 
       {/* Main Content Workspace */}

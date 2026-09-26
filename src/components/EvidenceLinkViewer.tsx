@@ -181,8 +181,8 @@ export const EvidenceLinkViewer: React.FC<EvidenceLinkViewerProps> = ({ forecast
                 </div>
                 <div>
                   <span className="text-slate-400 block">GDAC Archive Path:</span>
-                  <span className="truncate block" title={selectedCitation.provenance_chain.archive_gdac}>
-                    {selectedCitation.provenance_chain.archive_gdac}
+                  <span className="truncate block" title={selectedCitation.provenance_chain?.archive_gdac ?? selectedCitation.gdac_archive_path ?? ''}>
+                    {selectedCitation.provenance_chain?.archive_gdac ?? selectedCitation.gdac_archive_path ?? '—'}
                   </span>
                 </div>
                 <div>
@@ -213,7 +213,7 @@ export const EvidenceLinkViewer: React.FC<EvidenceLinkViewerProps> = ({ forecast
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedCitation.measurements.map((m, idx) => {
+                    {(selectedCitation.measurements ?? []).map((m, idx) => {
                       const forecastPt = forecast.profiles[idx];
                       return (
                         <tr key={m.depth_dbar} className="hover:bg-slate-50">
@@ -225,6 +225,13 @@ export const EvidenceLinkViewer: React.FC<EvidenceLinkViewerProps> = ({ forecast
                         </tr>
                       );
                     })}
+                    {(selectedCitation.measurements ?? []).length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-4 text-center text-slate-500">
+                          No depth-resolved levels stored for this citation.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

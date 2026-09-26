@@ -29,7 +29,7 @@ async def get_floats():
     """
     db = get_db()
     try:
-        floats = db.query(ArgoFloat).all()
+        floats = db.query(ArgoFloat).order_by(ArgoFloat.wmo_id.asc()).all()
         
         result = []
         for f in floats:

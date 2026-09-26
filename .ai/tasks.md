@@ -140,6 +140,30 @@ This phased task backlog guides an autonomous CLI agent to build the full Python
 
 ---
 
+## Phase 8: Manual UI Bugfix Hardening (2026-09-25)
+- [x] **TASK-801: Serve full 47-float catalog**
+  - *Files:* `backend/app/api/floats.py`
+  - *Description:* Order `/api/floats` by WMO; verify DB holds 47 floats via `seed_all_floats.py` (idempotent).
+  - *Acceptance Criteria:* `GET /api/floats` returns 47 floats (verified live via TestClient).
+- [x] **TASK-802: Gate non-forecastable base cycles**
+  - *Files:* `backend/app/api/forecast.py`, `src/components/ControlBar.tsx`, `src/services/api.ts`
+  - *Description:* Actionable 400 message; hide first 3 cycles in dropdown; surface backend `detail` in UI errors.
+  - *Acceptance Criteria:* Cycle 1 → 400 names earliest valid cycle; dropdown lists only forecastable cycles.
+- [x] **TASK-803: Repair evidence inspection modal**
+  - *Files:* `backend/app/api/forecast.py`, `backend/app/core/evidence.py`, `src/components/EvidenceLinkViewer.tsx`, `src/types.ts`
+  - *Description:* Backend emits `provenance_chain` + hydrated `measurements` + lat/lon; frontend guards with optional chaining.
+  - *Acceptance Criteria:* Citation has `provenance_chain` and 16 measurements (verified live); modal renders without crash.
+- [x] **TASK-804: Diversify chat responses with DB grounding**
+  - *Files:* `backend/app/api/chat.py`
+  - *Description:* 8 intent routes over real observed levels; Gemini-first with offline fallback; fix 400 tuple bug.
+  - *Acceptance Criteria:* 8 sample queries → 8 distinct grounded answers; `pytest` chat test green.
+- [x] **TASK-805: Run Forecast visual feedback**
+  - *Files:* `src/App.tsx`, `src/components/ControlBar.tsx`
+  - *Description:* "Updated HH:MM:SS" chip on recompute; live float count in dropdown label.
+  - *Acceptance Criteria:* `tsc --noEmit` clean; button shows Computing → Updated timestamp.
+
+---
+
 ## Definition of Done (DoD)
 A task is marked done (`- [x]`) ONLY when:
 1. All referenced files are created or edited according to specifications.

@@ -55,3 +55,11 @@ FloatChat operates as an end-to-end, fully functional React 19 + TypeScript sing
 
 ## 4. Immediate Next Action
 All Phase 6 and Phase 7 verification tasks are complete. Model training stretch optimization (TASK-303) remains as a research iteration. System is fully operational and verified end-to-end.
+
+## 5. UI Bugfix Hardening (2026-09-25, Phase 8)
+Five manually-reported UI bugs fixed and verified (`pytest` 10/10, `tsc --noEmit` clean, live `TestClient` checks):
+1. Float dropdown shows all 47 floats when served by the Python backend (`seed_all_floats.py` is the canonical seeder; `seed_db.py` alone yields only 4).
+2. First-3-cycle base selections no longer 400 opaquely: dropdown lists only forecastable cycles and errors name the earliest valid cycle.
+3. "Inspect Profile & Lineage" modal renders: citations carry `provenance_chain` + 16 measurements + real lat/lon, with frontend optional-chaining guards.
+4. FloatChat answers vary by intent (8 DB-grounded templates + explicit-depth queries; Gemini-first when `GEMINI_API_KEY` is set).
+5. "Run Forecast" confirms recompute with an "Updated HH:MM:SS" chip next to the button.

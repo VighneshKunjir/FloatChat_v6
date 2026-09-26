@@ -23,6 +23,8 @@ interface ControlBarProps {
   currentLat?: number;
   currentLon?: number;
   forecastDate?: string;
+  lastRefresh?: string | null;
+  refreshCount?: number;
 }
 
 export const ControlBar: React.FC<ControlBarProps> = ({
@@ -37,10 +39,16 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onRefreshForecast,
   currentLat,
   currentLon,
-  forecastDate
+  forecastDate,
+  lastRefresh,
+  refreshCount
 }) => {
   const currentFloat = floats.find((f) => f.wmo_id === selectedWmo);
-  const availableCycles = currentFloat?.cycles || [85, 86, 87, 88, 89, 90, 91, 92, 93, 94];
+  const allCycles = currentFloat?.cycles || [85, 86, 87, 88, 89, 90, 91, 92, 93, 94];
+  // The forecast model needs 3 prior input cycles (t-3, t-2, t-1), so the first
+  // 3 recorded cycles of a float can never be a forecast base cycle. Hide them
+  // to prevent avoidable "Bad Request" forecast errors.
+  const availableCycles = allCycles.length > 3 ? allCycles.slice(3) : allCycles;
 
   return (
     <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-xs">
@@ -49,7 +57,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-              Select Argo Float (Arabian Sea)
+              Select Argo Float {floats.length > 0 ? `(${floats.length} available)` : '(Arabian Sea)'}
             </label>
             <select
               value={selectedWmo}
@@ -138,6 +146,11 @@ export const ControlBar: React.FC<ControlBarProps> = ({
               <div className="hidden sm:flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <span>{forecastDate}</span>
+              </div>
+            )}
+            {lastRefresh && !isLoading && (
+              <div className="hidden md:flex items-center gap-1 text-emerald-600 font-medium" title={`Forecast recomputed ${refreshCount ?? 1} time(s) this session`}>
+                <span>Updated {lastRefresh}</span>
               </div>
             )}
           </div>
