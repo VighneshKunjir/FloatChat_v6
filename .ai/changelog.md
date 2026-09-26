@@ -116,6 +116,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
  
+## [Setup Orchestrator + Future Log] - 2026-09-26
+### Added
+- **One-command setup** (`setup.py`): `--profile full|serve`, `--only/--skip`, `--force[-download|-process|-train]`, `--floats/--floats-file/--discover --years --min-cycles --top-n`, `--check` doctor mode, and serve mode (uvicorn + `npm run dev` with log prefixes, health gates, Ctrl+C cleanup). Heavy stages skip-if-fresh.
+- **Custom-volume chain**: discovery accepts `--years/--min-cycles`; downloader accepts `--floats-file` (discovery output or `WMO,DAC[,NAME]`).
+- **`future_improvents.md`**: living log of user-proposed future work (custom data volume, frontend Gemini-key input).
+
+### Verified
+- `setup.py --check` reports true state; freshness helper fixed for file paths (`rglob` yields nothing on files).
+
+---
+
 ## [TASK-603 & Phase 6 Complete] - 2026-09-25
 ### Changed
 - **Node Server Proxying Enabled by Default** (`server.ts`): Set `USE_PYTHON_BACKEND` default to `true`. Mounted proxy before `express.json()` to preserve raw body streaming to FastAPI backend on port 8000.

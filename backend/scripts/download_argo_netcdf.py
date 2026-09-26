@@ -207,10 +207,32 @@ class ArgoDownloader:
         return {"wmo": wmo, "downloaded": downloaded, "total": len(cycles), "cycles": cycles}
 
 
-def build_float_list(index_data: Dict[str, Dict]) -> List[Dict]:
-    """Build the list of floats from our target list, enriched with index data."""
+def load_floats_file(path: Path) -> List[tuple]:
+    """Load a float list file: `WMO,DAC[,NAME]` or discovery output
+    `WMO,DAC,N_CYCLES,AVG_LAT,AVG_LON,INSTITUTION` (`#` comments skipped)."""
+    entries: List[tuple] = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 2:
+            continue
+        wmo, dac = parts[0], parts[1]
+        if len(parts) >= 6:
+            name = f"Float {wmo} ({parts[5]})"
+        elif len(parts) >= 3 and parts[2]:
+            name = parts[2]
+        else:
+            name = f"Float {wmo}"
+        entries.append((wmo, dac, name))
+    return entries
+
+
+def build_float_list(index_data: Dict[str, Dict], source: List[tuple] | None = None) -> List[Dict]:
+    """Build the list of floats from a target list, enriched with index data."""
     floats = []
-    for wmo, dac, name in ALL_FLOATS:
+    for wmo, dac, name in (source if source is not None else ALL_FLOATS):
         info = index_data.get(wmo)
         if info:
             floats.append({
@@ -322,6 +344,8 @@ def main():
     parser.add_argument("--output", "-o", type=Path, default=Path("./argo_raw_netcdf"),
                         help="Output directory (default: ./argo_raw_netcdf)")
     parser.add_argument("--float", "-f", type=str, help="WMO ID(s), comma-separated, to download")
+    parser.add_argument("--floats-file", type=Path, default=None,
+                        help="Float list file (discovery output or WMO,DAC[,NAME] rows); replaces the built-in list")
     parser.add_argument("--all", "-a", action="store_true", help="Download all 34 floats (30 target + 4 seed)")
     parser.add_argument("--target", "-t", action="store_true", help="Download top 30 target floats only")
     parser.add_argument("--seed", "-s", action="store_true", help="Download 4 seed floats only")
@@ -330,13 +354,19 @@ def main():
     
     args = parser.parse_args()
     
+    # Float source: explicit file wins over the built-in list
+    source = load_floats_file(args.floats_file) if args.floats_file else None
+    if args.floats_file and not source:
+        print(f"Error: no floats parsed from {args.floats_file}")
+        sys.exit(1)
+
     # Fetch global index
     async def fetch_and_run():
         async with httpx.AsyncClient(timeout=60.0) as client:
             index_data = await fetch_global_index(client)
-            
+
             # Build float list with our target DACs
-            float_list = build_float_list(index_data)
+            float_list = build_float_list(index_data, source=source)
             
             if args.list:
                 print("\nTop 30 Target Floats + 4 Seed Floats:")

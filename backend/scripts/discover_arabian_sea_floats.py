@@ -34,10 +34,24 @@ async def fetch_global_index(client: httpx.AsyncClient) -> str:
     return resp.text
 
 
-def parse_index_for_region(content: str) -> Dict[str, Dict]:
+def parse_years(spec: str) -> set:
+    """Parse '2020-2024' or '2022,2023' into a set of years."""
+    years: set = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            lo, hi = part.split("-", 1)
+            years.update(range(int(lo), int(hi) + 1))
+        elif part:
+            years.add(int(part))
+    return years
+
+
+def parse_index_for_region(content: str, years: set | None = None) -> Dict[str, Dict]:
     """
     Parse index and extract floats with profiles in Arabian Sea box.
     Returns dict: WMO -> {dac, cycles: set, positions: list of (lat, lon)}
+    If years is given, only profiles dated within those years count.
     """
     floats = {}
     total_lines = 0
@@ -51,9 +65,15 @@ def parse_index_for_region(content: str) -> Dict[str, Dict]:
         match = INDEX_PATTERN.match(line)
         if match:
             dac, wmo, wmo2, cycle_str, date_str, lat_str, lon_str, data_mode, profiler_type, institution, date_update = match.groups()
-            
+
             if wmo != wmo2:
                 continue
+            if years is not None:
+                try:
+                    if int(date_str[:4]) not in years:
+                        continue
+                except (ValueError, TypeError):
+                    continue
             
             lat = float(lat_str)
             lon = float(lon_str)
@@ -82,8 +102,8 @@ def parse_index_for_region(content: str) -> Dict[str, Dict]:
     return floats
 
 
-def rank_floats(floats: Dict[str, Dict], top_n: int = 30) -> List[Tuple[str, Dict]]:
-    """Rank floats by number of delayed-mode cycles, return top N."""
+def rank_floats(floats: Dict[str, Dict], top_n: int = 30, min_cycles: int = 0) -> List[Tuple[str, Dict]]:
+    """Rank floats by number of delayed-mode cycles, return top N (min_cycles floor)."""
     ranked = []
     
     for wmo, info in floats.items():
@@ -111,27 +131,34 @@ def rank_floats(floats: Dict[str, Dict], top_n: int = 30) -> List[Tuple[str, Dic
     
     # Sort by number of cycles (descending)
     ranked.sort(key=lambda x: x[1]["n_cycles"], reverse=True)
+    if min_cycles > 0:
+        ranked = [entry for entry in ranked if entry[1]["n_cycles"] >= min_cycles]
     return ranked[:top_n]
 
 
-async def main(top_n: int = 30, output_file: Path = Path("arabian_sea_top30_floats.txt")):
+async def main(top_n: int = 30, output_file: Path = Path("arabian_sea_top30_floats.txt"),
+             years: set | None = None, min_cycles: int = 0):
     print("="*70)
     print("ARABIAN SEA FLOAT DISCOVERY FROM GLOBAL INDEX")
     print("="*70)
     print(f"Bounding box: {MIN_LAT}°N-{MAX_LAT}°N, {MIN_LON}°E-{MAX_LON}°E")
+    if years:
+        print(f"Year filter: {min(years)}-{max(years)}")
+    if min_cycles:
+        print(f"Minimum cycles: {min_cycles}")
     print()
-    
+
     timeout = httpx.Timeout(300.0, connect=30.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         content = await fetch_global_index(client)
-    
+
     # Parse
     print("\nParsing index for Arabian Sea profiles...")
-    floats = parse_index_for_region(content)
-    
+    floats = parse_index_for_region(content, years=years)
+
     # Rank
     print("\nRanking floats by number of delayed-mode profiles...")
-    top_floats = rank_floats(floats, top_n=top_n)
+    top_floats = rank_floats(floats, top_n=top_n, min_cycles=min_cycles)
     
     # Display results
     print(f"\n{'='*70}")
@@ -143,10 +170,14 @@ async def main(top_n: int = 30, output_file: Path = Path("arabian_sea_top30_floa
     for i, (wmo, info) in enumerate(top_floats, 1):
         print(f"{i:3d} {wmo:>10} {info['dac']:>10} {info['n_cycles']:6d} {info['avg_lat']:8.3f} {info['avg_lon']:8.3f} {info['institution']:>6}")
     
-    # Save to file for the downloader
+    # Save to file for the downloader (format also readable via --floats-file)
     with open(output_file, "w") as f:
         f.write(f"# Top {top_n} Arabian Sea floats from global index\n")
         f.write(f"# Bounding box: {MIN_LAT}-{MAX_LAT}N, {MIN_LON}-{MAX_LON}E\n")
+        if years:
+            f.write(f"# Years: {min(years)}-{max(years)}\n")
+        if min_cycles:
+            f.write(f"# Min cycles: {min_cycles}\n")
         f.write("# Format: WMO,DAC,N_CYCLES,AVG_LAT,AVG_LON,INSTITUTION\n")
         for wmo, info in top_floats:
             f.write(f"{wmo},{info['dac']},{info['n_cycles']},{info['avg_lat']:.4f},{info['avg_lon']:.4f},{info['institution']}\n")
@@ -162,5 +193,11 @@ if __name__ == "__main__":
     _p = _argparse.ArgumentParser(description="Discover Arabian Sea floats from global Argo index")
     _p.add_argument("--top-n", type=int, default=30)
     _p.add_argument("--output", type=Path, default=Path("arabian_sea_top30_floats.txt"))
+    _p.add_argument("--years", type=str, default=None,
+                    help="Profile years, e.g. '2020-2024' or '2022,2023'")
+    _p.add_argument("--min-cycles", type=int, default=0,
+                    help="Drop floats with fewer delayed-mode cycles")
     _a = _p.parse_args()
-    asyncio.run(main(top_n=_a.top_n, output_file=_a.output))
+    asyncio.run(main(top_n=_a.top_n, output_file=_a.output,
+                     years=parse_years(_a.years) if _a.years else None,
+                     min_cycles=_a.min_cycles))
