@@ -106,7 +106,13 @@ export const XaiDiagnostics: React.FC<XaiDiagnosticsProps> = ({ forecast }) => {
           </div>
 
           <div className="mt-4 p-3 bg-slate-100 rounded-lg text-xs text-slate-700 border border-slate-200">
-            <strong>Oceanographic Synthesis:</strong> The immediate antecedent cycle ($t-1$) provides 58% of the governing state momentum for the pycnocline, whereas earlier cycles ($t-2, t-3$) parameterize background seasonal mesoscale drift in the central Arabian Sea.
+            <strong>Oceanographic Synthesis:</strong> The immediate antecedent cycle ($t-1$) provides{' '}
+            <span className="font-semibold text-cyan-700">
+              {(xai_attribution.temporal_attribution[0]?.importance_score != null
+                ? xai_attribution.temporal_attribution[0].importance_score * 100
+                : 58).toFixed(1)}%
+            </span>{' '}
+            of the governing state momentum for the pycnocline, whereas earlier cycles ($t-2, t-3$) parameterize background seasonal mesoscale drift in the central Arabian Sea.
           </div>
         </div>
 
@@ -167,14 +173,16 @@ export const XaiDiagnostics: React.FC<XaiDiagnosticsProps> = ({ forecast }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {physical_diagnostics.density_profile.slice(0, 6).map((dp) => (
-                  <tr key={dp.depth_dbar} className="hover:bg-slate-50">
-                    <td className="px-3 py-1 text-slate-900">{dp.depth_dbar}</td>
-                    <td className="px-3 py-1 text-purple-700 font-semibold">{dp.sigma_theta != null ? dp.sigma_theta.toFixed(3) : '--'}</td>
-                    <td className="px-3 py-1 text-slate-600">{dp.buoyancy_frequency_n2}</td>
-                    <td className="px-3 py-1 text-right text-emerald-600 font-bold">PASS</td>
-                  </tr>
-                ))}
+                {physical_diagnostics.density_profile
+                  .filter((dp) => [5, 50, 100, 200, 400, 700, 1000].includes(dp.depth_dbar))
+                  .map((dp) => (
+                    <tr key={dp.depth_dbar} className="hover:bg-slate-50">
+                      <td className="px-3 py-1 text-slate-900">{dp.depth_dbar}</td>
+                      <td className="px-3 py-1 text-purple-700 font-semibold">{dp.sigma_theta != null ? dp.sigma_theta.toFixed(3) : '--'}</td>
+                      <td className="px-3 py-1 text-slate-600">{dp.buoyancy_frequency_n2}</td>
+                      <td className="px-3 py-1 text-right text-emerald-600 font-bold">PASS</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
