@@ -17,3 +17,4 @@ arabian_sea_top60_floats.txt
 .playwright-mcp/
 .playwright-cli/
 *.png
+venv/
