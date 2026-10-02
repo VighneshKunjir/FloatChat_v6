@@ -138,7 +138,7 @@ def inversion_rate(t_pred: np.ndarray, s_pred: np.ndarray) -> float:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Physics-Informed Bi-LSTM")
-    parser.add_argument("--csv", type=Path, default=Path(__file__).parent.parent / "data" / "processed" / "argo_30floats_canonical.csv")
+    parser.add_argument("--csv", type=Path, default=Path(__file__).parent.parent / "data" / "processed" / "argo_floats_canonical.csv")
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--batch-size", type=int, default=None)

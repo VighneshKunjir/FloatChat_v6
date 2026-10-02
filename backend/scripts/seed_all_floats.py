@@ -2,7 +2,7 @@
 """
 Seed database with ALL floats from the canonical CSV.
 
-Reads from backend/data/processed/argo_30floats_canonical.csv and inserts
+Reads from backend/data/processed/argo_floats_canonical.csv and inserts
 ArgoFloat, ArgoProfile, and ProfileLevel records for every float/cycle found.
 """
 import sys
@@ -34,7 +34,7 @@ def get_float_name(wmo):
 
 
 def main():
-    csv_path = Path(__file__).parent.parent / "data" / "processed" / "argo_30floats_canonical.csv"
+    csv_path = Path(__file__).parent.parent / "data" / "processed" / "argo_floats_canonical.csv"
     if not csv_path.exists():
         print(f"ERROR: CSV not found at {csv_path}")
         sys.exit(1)

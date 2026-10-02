@@ -53,7 +53,7 @@ def build_windows(df: pd.DataFrame):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train persistence + GB baselines")
-    parser.add_argument("--csv", type=Path, default=Path(__file__).parent.parent / "data" / "processed" / "argo_30floats_canonical.csv")
+    parser.add_argument("--csv", type=Path, default=Path(__file__).parent.parent / "data" / "processed" / "argo_floats_canonical.csv")
     parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args()
 

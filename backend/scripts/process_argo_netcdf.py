@@ -3,7 +3,7 @@
 Argo NetCDF Processing Pipeline for FloatChat
 
 Processes raw NetCDF profiles from backend/data/raw/{WMO}/ into:
-1. Canonical wide-format CSV (argo_30floats_canonical.csv) for ML training
+1. Canonical wide-format CSV (argo_floats_canonical.csv) for ML training
 2. Validates TEOS-10 static stability (flagged via is_stable, never discarded)
 3. Computes derived quantities (σ_θ, N², MLD)
 
@@ -318,7 +318,7 @@ def process_all_floats():
     df = df[meta_cols + depth_cols]
     
     # Save canonical CSV
-    csv_path = PROCESSED_DIR / "argo_30floats_canonical.csv"
+    csv_path = PROCESSED_DIR / "argo_floats_canonical.csv"
     df.to_csv(csv_path, index=False)
     print(f"\nSaved canonical CSV: {csv_path}")
     print(f"Shape: {df.shape} ({df.shape[0]} profiles × {df.shape[1]} columns)")
@@ -343,7 +343,7 @@ def main():
     df = process_all_floats()
     if df is not None:
         print("\nProcessing complete!")
-        print(f"Canonical dataset ready at: {PROCESSED_DIR / 'argo_30floats_canonical.csv'}")
+        print(f"Canonical dataset ready at: {PROCESSED_DIR / 'argo_floats_canonical.csv'}")
 
 
 if __name__ == "__main__":

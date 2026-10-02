@@ -12,7 +12,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 
 # Load data
-csv_path = Path(__file__).parent / 'data' / 'processed' / 'argo_30floats_canonical.csv'
+csv_path = Path(__file__).parent / 'data' / 'processed' / 'argo_floats_canonical.csv'
 df = pd.read_csv(csv_path)
 
 STANDARD_DEPTHS = [5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]

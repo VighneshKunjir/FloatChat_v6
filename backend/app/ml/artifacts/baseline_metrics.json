@@ -1,26 +1,26 @@
 [
   {
     "model": "Persistence Baseline (t-1)",
-    "profile_rmse": 0.544,
-    "profile_mae": 0.3272,
-    "thermocline_rmse": 0.8586,
+    "profile_rmse": 0.5438,
+    "profile_mae": 0.3271,
+    "thermocline_rmse": 0.8585,
     "deep_rmse": 0.1534,
-    "physical_violation_rate": 21.137
+    "physical_violation_rate": 21.116
   },
   {
     "model": "Gradient Boosting / Ridge",
-    "profile_rmse": 0.507,
-    "profile_mae": 0.311,
-    "thermocline_rmse": 0.8041,
+    "profile_rmse": 0.5071,
+    "profile_mae": 0.3111,
+    "thermocline_rmse": 0.8047,
     "deep_rmse": 0.1443,
-    "physical_violation_rate": 23.928
+    "physical_violation_rate": 23.904
   },
   {
     "model": "FloatChat X-RAG (LSTM + MC Dropout)",
-    "profile_rmse": 0.5141,
-    "profile_mae": 0.3269,
-    "thermocline_rmse": 0.7939,
-    "deep_rmse": 0.1471,
-    "physical_violation_rate": 0.299
+    "profile_rmse": 0.5124,
+    "profile_mae": 0.3268,
+    "thermocline_rmse": 0.803,
+    "deep_rmse": 0.1555,
+    "physical_violation_rate": 1.594
   }
 ]
