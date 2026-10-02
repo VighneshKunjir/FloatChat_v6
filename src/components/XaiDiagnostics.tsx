@@ -21,6 +21,13 @@ export const XaiDiagnostics: React.FC<XaiDiagnosticsProps> = ({ forecast }) => {
     return item ? item.saliency_weight : 0.08;
   };
 
+  // Compute max weight in displayed 6x6 matrix for relative color scaling
+  const maxDisplayedWeight = Math.max(
+    ...matrixDepths.flatMap(inD => 
+      matrixDepths.map(outD => getWeight(inD, outD))
+    )
+  );
+
   return (
     <div className="space-y-6">
       {/* Overview Banner */}
@@ -175,7 +182,7 @@ export const XaiDiagnostics: React.FC<XaiDiagnosticsProps> = ({ forecast }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {physical_diagnostics.density_profile.slice(0, 6).map((dp) => (
+                {physical_diagnostics.density_profile.map((dp) => (
                   <tr key={dp.depth_dbar} className="hover:bg-slate-50">
                     <td className="px-3 py-1 text-slate-900">{dp.depth_dbar}</td>
                     <td className="px-3 py-1 text-purple-700 font-semibold">{dp.sigma_theta != null ? dp.sigma_theta.toFixed(3) : '--'}</td>
@@ -237,14 +244,16 @@ export const XaiDiagnostics: React.FC<XaiDiagnosticsProps> = ({ forecast }) => {
                       <div key={`row-${inD}`} className="grid grid-cols-6 gap-1 items-center">
                         {matrixDepths.map((outD) => {
                           const w = getWeight(inD, outD);
+                          // Relative scaling: normalize to max displayed weight for color
+                          const rel = maxDisplayedWeight > 0 ? w / maxDisplayedWeight : 0;
                           const bg =
-                            w >= 0.85
+                            rel >= 0.85
                               ? 'bg-indigo-700 text-white'
-                              : w >= 0.65
+                              : rel >= 0.65
                               ? 'bg-indigo-500 text-white'
-                              : w >= 0.4
+                              : rel >= 0.4
                               ? 'bg-indigo-300 text-slate-900'
-                              : w >= 0.2
+                              : rel >= 0.2
                               ? 'bg-indigo-100 text-slate-700'
                               : 'bg-slate-100 text-slate-400';
 

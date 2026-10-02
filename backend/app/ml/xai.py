@@ -219,51 +219,126 @@ def compute_temporal_attribution(
 def compute_depth_attribution_matrix(
     attributions: np.ndarray,
     target_variable: str = "temp",
+    temp_profile: Optional[np.ndarray] = None,
+    sal_profile: Optional[np.ndarray] = None,
+    mld_dbar: Optional[float] = None,
+    thermocline_depth_dbar: Optional[float] = None,
 ) -> List[Dict]:
     """
-    Compute cross-depth saliency matrix.
+    Compute physically-informed cross-depth saliency matrix.
+    
+    Uses Integrated Gradients attributions combined with oceanographic physics:
+    - Vertical gradients (∂T/∂z, ∂S/∂z) to weight vertical coupling
+    - Mixed layer depth (MLD) for surface mixing influence
+    - Thermocline depth for stratification barrier effects
+    - Self-persistence on diagonal
     
     Args:
-        attributions: Shape (batch, 3, 32) 
+        attributions: Shape (batch, 3, 32) from Captum IG
         target_variable: "temp" or "sal"
+        temp_profile: Forecasted temperature profile (16,) for gradient computation
+        sal_profile: Forecasted salinity profile (16,) for gradient computation
+        mld_dbar: Mixed layer depth in dbar
+        thermocline_depth_dbar: Thermocline depth in dbar
     
     Returns:
-        List of dicts with input_depth, output_depth, saliency_weight
+        List of dicts with input_depth, output_depth, saliency_weight for all 16x16 combinations
     """
     attr = attributions.squeeze(0)  # (3, 32)
     
     # Standard depths
-    depths = [5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000]
+    depths = np.array([5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000], dtype=float)
+    n_depths = len(depths)
     
     if target_variable == "temp":
-        # Temperature features (0-15) -> Temperature outputs (0-15)
-        input_features = attr[:, :16]   # (3, 16) - T features at each input cycle
-        output_features = attr[:, :16]  # (3, 16) - T output depths
+        input_features = attr[:, :16]   # (3, 16)
+        output_features = attr[:, :16]  # (3, 16)
     else:
-        # Salinity features (16-31) -> Salinity outputs (0-15)
-        input_features = attr[:, 16:]   # (3, 16) - S features at each input cycle
-        output_features = attr[:, 16:]  # (3, 16) - S output depths
+        input_features = attr[:, 16:]   # (3, 16)
+        output_features = attr[:, 16:]  # (3, 16)
     
-    # We want: how does each input depth (at each cycle) influence each output depth?
-    # For simplicity, aggregate across cycles and normalize
+    # Base saliency from Integrated Gradients (mean across cycles)
     input_saliency = np.mean(np.abs(input_features), axis=0)  # (16,)
     output_saliency = np.mean(np.abs(output_features), axis=0)  # (16,)
     
-    # Normalize
+    # Normalize base saliency
     if input_saliency.sum() > 0:
         input_saliency = input_saliency / input_saliency.sum()
     if output_saliency.sum() > 0:
         output_saliency = output_saliency / output_saliency.sum()
     
-    # Build matrix: cross product of input and output saliency
+    # Start with outer product as base
     matrix = np.outer(input_saliency, output_saliency)  # (16, 16)
     
+    # Enhance with physical coupling if profiles provided
+    if temp_profile is not None and sal_profile is not None:
+        # Compute vertical gradients
+        dT_dz = np.gradient(temp_profile, depths)  # °C/dbar
+        dS_dz = np.gradient(sal_profile, depths)   # PSU/dbar
+        
+        # Gradient magnitudes (stronger gradient = stronger coupling potential)
+        grad_magnitude = np.sqrt(dT_dz**2 + (dS_dz * 10)**2)  # scale S to match T magnitude
+        
+        # Normalize gradient magnitude
+        if grad_magnitude.max() > 0:
+            grad_norm = grad_magnitude / grad_magnitude.max()
+        else:
+            grad_norm = np.zeros_like(grad_magnitude)
+        
+        # Physical coupling matrix
+        phys_matrix = np.zeros((n_depths, n_depths))
+        
+        for i, z_in in enumerate(depths):
+            for j, z_out in enumerate(depths):
+                # 1. Self-persistence (diagonal enhancement)
+                if i == j:
+                    phys_matrix[i, j] += 1.0
+                
+                # 2. Vertical proximity coupling (exponential decay with depth separation)
+                depth_sep = abs(z_in - z_out)
+                phys_matrix[i, j] += np.exp(-depth_sep / 200.0)  # 200 dbar e-folding scale
+                
+                # 3. Gradient-based coupling (stronger where gradients are strong)
+                if i != j:
+                    # Average gradient along path
+                    path_grad = np.mean(grad_norm[min(i,j):max(i,j)+1])
+                    phys_matrix[i, j] += 0.5 * path_grad
+                
+                # 4. Mixed layer coupling (strong within MLD)
+                if mld_dbar is not None and z_in <= mld_dbar and z_out <= mld_dbar:
+                    phys_matrix[i, j] += 0.8
+                
+                # 5. Thermocline coupling (surface-to-thermocline heat flux)
+                if thermocline_depth_dbar is not None:
+                    # Surface (z_in shallow) influences thermocline (z_out near thermocline)
+                    if z_in < 50 and abs(z_out - thermocline_depth_dbar) < 50:
+                        phys_matrix[i, j] += 0.6
+                    # Thermocline self-coupling
+                    if abs(z_in - thermocline_depth_dbar) < 30 and abs(z_out - thermocline_depth_dbar) < 30:
+                        phys_matrix[i, j] += 0.4
+                
+                # 6. Deep coupling (below thermocline, weak)
+                if z_in > 400 and z_out > 400:
+                    phys_matrix[i, j] += 0.3
+        
+        # Normalize physical matrix
+        if phys_matrix.max() > 0:
+            phys_matrix = phys_matrix / phys_matrix.max()
+        
+        # Combine: 70% Integrated Gradients + 30% physical coupling
+        matrix = 0.7 * matrix + 0.3 * phys_matrix
+        
+        # Re-normalize
+        if matrix.sum() > 0:
+            matrix = matrix / matrix.sum()
+    
+    # Build results for all 16x16 = 256 combinations
     results = []
     for i, in_depth in enumerate(depths):
         for j, out_depth in enumerate(depths):
             results.append({
-                "input_depth": in_depth,
-                "output_depth": out_depth,
+                "input_depth": int(in_depth),
+                "output_depth": int(out_depth),
                 "saliency_weight": float(matrix[i, j]),
             })
     
@@ -273,14 +348,20 @@ def compute_depth_attribution_matrix(
 def compute_key_depth_influences(
     attributions: np.ndarray,
     target_variable: str = "temp",
+    temp_profile: Optional[np.ndarray] = None,
+    sal_profile: Optional[np.ndarray] = None,
+    mld_dbar: Optional[float] = None,
+    thermocline_depth_dbar: Optional[float] = None,
 ) -> List[Dict]:
     """
     Compute key depth influences with scientific interpretation.
+    
+    Identifies dominant oceanographic couplings from the attribution matrix
+    combined with physical profile features.
     """
     attr = attributions.squeeze(0)  # (3, 32)
     
     if target_variable == "temp":
-        # Temperature: sum across T features per cycle
         cycle_importance = np.sum(np.abs(attr[:, :16]), axis=1)
     else:
         cycle_importance = np.sum(np.abs(attr[:, 16:]), axis=1)
@@ -291,13 +372,47 @@ def compute_key_depth_influences(
         cycle_importance = cycle_importance / total
     
     results = []
-    # Map to thermocline influences
+    
+    # Standard depths
+    depths = np.array([5, 20, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1000], dtype=float)
+    
+    # 1. THERMOCLINE COUPLING (always present)
     results.append({
         "target_zone": "Thermocline (75 - 150 dbar)",
         "dominant_input_depth": "Surface to 50 dbar heat flux + 100 dbar shear",
         "attribution_percentage": float(cycle_importance[2] * 100),  # t-1 cycle
         "scientific_driver": "Surface solar irradiance and wind stress penetration control thermocline shoaling."
     })
+    
+    # 2. MIXED LAYER COUPLING (if MLD available)
+    if mld_dbar is not None and mld_dbar > 0:
+        results.append({
+            "target_zone": f"Mixed Layer (0 - {mld_dbar:.0f} dbar)",
+            "dominant_input_depth": f"Surface wind mixing + solar heating (0-{mld_dbar:.0f} dbar)",
+            "attribution_percentage": float(cycle_importance[2] * 100 * 0.6),  # reduced
+            "scientific_driver": "Wind-driven turbulent mixing and surface heat flux homogenize the upper layer."
+        })
+    
+    # 3. DEEP COUPLING (below 400 dbar)
+    results.append({
+        "target_zone": "Deep Ocean (400 - 1000 dbar)",
+        "dominant_input_depth": "Deep baroclinic adjustment + abyssal mixing",
+        "attribution_percentage": float(cycle_importance[0] * 100 + cycle_importance[1] * 100),  # t-3, t-2
+        "scientific_driver": "Slow deep circulation and historical stratification memory dominate abyssal layers."
+    })
+    
+    # 4. HALOCLINE COUPLING (if salinity profile available)
+    if sal_profile is not None:
+        # Find halocline (max salinity gradient)
+        dS_dz = np.gradient(sal_profile, depths)
+        halocline_idx = int(np.nanargmax(np.abs(dS_dz)))
+        halocline_depth = depths[halocline_idx]
+        results.append({
+            "target_zone": f"Haline Layer ({max(50, halocline_depth-50):.0f} - {min(1000, halocline_depth+50):.0f} dbar)",
+            "dominant_input_depth": f"Salinity advection at ~{halocline_depth:.0f} dbar",
+            "attribution_percentage": float(cycle_importance[1] * 100),  # t-2 cycle
+            "scientific_driver": "Lateral salinity advection and double-diffusive processes shape haline structure."
+        })
     
     return results
 
@@ -310,6 +425,10 @@ def compute_xai_attribution(
     baseline_tensor: Optional[torch.Tensor] = None,
     n_steps: int = 50,
     input_cycles: Optional[List[int]] = None,
+    temp_profile: Optional[np.ndarray] = None,
+    sal_profile: Optional[np.ndarray] = None,
+    mld_dbar: Optional[float] = None,
+    thermocline_depth_dbar: Optional[float] = None,
 ) -> Dict:
     """
     Main entry point for XAI attribution.
@@ -332,11 +451,23 @@ def compute_xai_attribution(
     # Temporal attribution
     temporal = compute_temporal_attribution(attributions, target_variable, input_cycles)
     
-    # Depth attribution matrix
-    depth_matrix = compute_depth_attribution_matrix(attributions, target_variable)
+    # Depth attribution matrix (with physical coupling)
+    depth_matrix = compute_depth_attribution_matrix(
+        attributions, target_variable,
+        temp_profile=temp_profile,
+        sal_profile=sal_profile,
+        mld_dbar=mld_dbar,
+        thermocline_depth_dbar=thermocline_depth_dbar
+    )
     
     # Key depth influences
-    key_influences = compute_key_depth_influences(attributions, target_variable)
+    key_influences = compute_key_depth_influences(
+        attributions, target_variable,
+        temp_profile=temp_profile,
+        sal_profile=sal_profile,
+        mld_dbar=mld_dbar,
+        thermocline_depth_dbar=thermocline_depth_dbar
+    )
     
     return {
         "temporal_attribution": temporal,

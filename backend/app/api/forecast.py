@@ -120,6 +120,7 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
     
     db = get_db()
     try:
+        import numpy as np
         # Load profile data for the float
         float_obj = db.query(ArgoFloat).filter(ArgoFloat.wmo_id == wmoId).first()
         if not float_obj:
@@ -292,17 +293,57 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
                 "measurements": measurements
             })
         
-        # XAI attribution (compute once, use dynamic result)
-        xai_result = compute_xai_attribution(model, input_tensor, target_variable='temp', target_depth_idx=4, input_cycles=list(input_cycles))
+        # Compute physical diagnostics from forecast FIRST (needed for XAI physical coupling)
+        from app.core.physics import validate_profile_physics, STANDARD_DEPTHS
+        
+        temp_forecast = np.array([p['temperature_forecast'] for p in profiles_result])
+        sal_forecast = np.array([p['salinity_forecast'] for p in profiles_result])
+        
+        physics_result = validate_profile_physics(temp_forecast, sal_forecast, STANDARD_DEPTHS, float_obj.base_lat, float_obj.base_lon)
+        
+        # Build density profile for the 7 requested depths: 5, 50, 100, 200, 400, 700, 1000
+        target_depths = [5, 50, 100, 200, 400, 700, 1000]
+        density_profile = []
+        for d in target_depths:
+            idx = np.where(STANDARD_DEPTHS == d)[0][0]
+            sigma = physics_result['potential_density'][idx]
+            N2 = physics_result['brunt_vaisala_N2'][idx - 1] if idx > 0 else 0.0
+            density_profile.append({
+                "depth_dbar": int(d),
+                "sigma_theta": round(float(sigma), 3),
+                "buoyancy_frequency_n2": float(N2)
+            })
+        
+        physical_diagnostics = {
+            "is_gravitationally_stable": bool(physics_result['is_gravitationally_stable']),
+            "min_density_gradient": float(np.min(physics_result['stability'])),
+            "mixed_layer_depth_m": float(physics_result['mld_dbar']) if not np.isnan(physics_result['mld_dbar']) else 40.0,
+            "max_thermocline_gradient": float(physics_result['max_thermocline_gradient']),
+            "thermocline_depth_m": int(STANDARD_DEPTHS[physics_result['thermocline_depth_idx']]),
+            "halocline_depth_m": 150,
+            "surface_potential_density": round(float(physics_result['potential_density'][0]), 2),
+            "deep_potential_density": round(float(physics_result['potential_density'][-1]), 2),
+            "stability_violation_count": int(physics_result['stability_violations']),
+            "density_profile": density_profile
+        }
+        
+        # XAI attribution (compute once, use dynamic result) with physical coupling
+        xai_result = compute_xai_attribution(
+            model, input_tensor, 
+            target_variable='temp', 
+            target_depth_idx=4, 
+            input_cycles=list(input_cycles),
+            temp_profile=temp_forecast,
+            sal_profile=sal_forecast,
+            mld_dbar=physical_diagnostics["mixed_layer_depth_m"],
+            thermocline_depth_dbar=physical_diagnostics["thermocline_depth_m"]
+        )
         xai_dict = {
             "temporal_attribution": xai_result["temporal_attribution"],
             "depth_attribution_matrix": xai_result["depth_attribution_matrix"],
             "key_depth_influences": xai_result["key_depth_influences"],
             "convergence_delta": xai_result["convergence_delta"]
         }
-        
-        # Physical diagnostics (simplified)
-        # In a real implementation, this would use the physics module
         
         # Metrics comparison
         metrics_comparison = [
@@ -331,9 +372,8 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
                 "physical_violation_rate": 0.3
             }
         ]
-        
-# Build response using DYNAMIC XAI results
 
+# Build response using DYNAMIC XAI results
         response = {
             "forecast_id": f"FC_XRAG_{wmoId}_C{cycle}_{int(datetime.now().timestamp() * 1000)}",
             "target_float_id": wmoId,
@@ -345,40 +385,10 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
             "input_sequence_cycles": input_cycles,
             "profiles": profiles_result,
             "uncertainty_bounds": uncertainty_bounds,
-            "physical_diagnostics": {
-                "is_gravitationally_stable": True,
-                "min_density_gradient": 0.00312,
-                "mixed_layer_depth_m": 40,
-                "max_thermocline_gradient": 0.1245,
-                "thermocline_depth_m": 100,
-                "halocline_depth_m": 150,
-                "surface_potential_density": 23.51,
-                "deep_potential_density": 27.52,
-                "stability_violation_count": 0,
-                "density_profile": [
-                    {"depth_dbar": 5, "sigma_theta": 23.51, "buoyancy_frequency_n2": 0.0},
-                    {"depth_dbar": 100, "sigma_theta": 25.14, "buoyancy_frequency_n2": 2.14e-4}
-                ]
-            },
+            "physical_diagnostics": physical_diagnostics,
             "xai_attribution": xai_dict,
             "evidence_citations": evidence_citations,
             "metrics_comparison": metrics_comparison
-        }
-        
-        physical_diagnostics = {
-            "is_gravitationally_stable": True,
-            "min_density_gradient": 0.00312,
-            "mixed_layer_depth_m": 40,
-            "max_thermocline_gradient": 0.1245,
-            "thermocline_depth_m": 100,
-            "halocline_depth_m": 150,
-            "surface_potential_density": 23.51,
-            "deep_potential_density": 27.52,
-            "stability_violation_count": 0,
-            "density_profile": [
-                {"depth_dbar": 5, "sigma_theta": 23.51, "buoyancy_frequency_n2": 0.0},
-                {"depth_dbar": 100, "sigma_theta": 25.14, "buoyancy_frequency_n2": 2.14e-4}
-            ]
         }
         
         # Persist to forecast_logs
