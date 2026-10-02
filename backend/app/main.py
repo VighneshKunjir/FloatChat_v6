@@ -6,6 +6,7 @@ from fastapi.routing import APIRoute
 
 from app.api import health, floats, forecast, chat
 from app.db.session import init_db
+from app.api.forecast import load_model_and_preprocessor
 
 
 def create_app() -> FastAPI:
@@ -51,8 +52,14 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup():
-        """Initialize database on startup."""
+        """Initialize database and load ML model on startup."""
         init_db()
+        # Load ML model and preprocessor
+        from app.api.forecast import load_model_and_preprocessor
+        if not load_model_and_preprocessor():
+            print("WARNING: Failed to load ML model and preprocessor")
+        else:
+            print("ML model and preprocessor loaded successfully")
 
     @app.get("/")
     async def root():

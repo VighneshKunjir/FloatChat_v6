@@ -10,9 +10,10 @@ import asyncio
 import sys
 import re
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 import httpx
 from tqdm import tqdm
+from datetime import datetime
 
 # Global index URL
 GLOBAL_INDEX_URL = "https://data-argo.ifremer.fr/ar_index_global_prof.txt"
@@ -97,7 +98,7 @@ def parse_global_index(content: str) -> Dict[str, Dict]:
     """
     result = {}
     
-    # Pattern: dac/WMO/profiles/DWMO_CYCLE.nc (or DWMO_CYCLED.nc for delayed)
+    # Pattern: dac/WMO/profiles/D{WMO}_{CYCLE}.nc (or DWMO_CYCLED.nc for delayed)
     pattern = r'^([^/]+)/(\d+)/profiles/D(\d+)_(\d{3})D?\.nc'
     
     for line in content.strip().split('\n'):
@@ -109,17 +110,94 @@ def parse_global_index(content: str) -> Dict[str, Dict]:
             dac, wmo, wmo2, cycle = match.groups()
             if wmo == wmo2 and wmo in TARGET_WMOS:
                 if wmo not in result:
-                    result[wmo] = {"dac": dac, "cycles": set()}
-                result[wmo]["cycles"].add(int(cycle))
+                    result[wmo] = {"dac": dac, "cycles": []}
+                # Store as (cycle, date_str) tuple to allow year filtering
+                # Extract date from line: format is ...,YYYYMMDD,... or ...,YYYYMMDDHHMMSS,...
+                date_match = re.search(r',(\d{8,14}),', line)
+                date_str = date_match.group(1) if date_match else ""
+                result[wmo]["cycles"].append((int(cycle), date_str))
     
-    # Convert sets to sorted lists
+    # Sort cycles by cycle number
     for wmo in result:
-        result[wmo]["cycles"] = sorted(result[wmo]["cycles"])
+        result[wmo]["cycles"].sort(key=lambda x: x[0])
     
     return result
 
 
-async def fetch_global_index(client: httpx.AsyncClient) -> Dict[str, Dict]:
+def parse_year_args(year_arg: Optional[str], start_year: Optional[int], end_year: Optional[int]) -> Tuple[Optional[int], Optional[int]]:
+    """
+    Parse year arguments and return (start_year, end_year) tuple.
+    
+    Args:
+        year_arg: String like "2023" or "2020-2023"
+        start_year: Explicit start year
+        end_year: Explicit end year
+    
+    Returns:
+        Tuple of (start_year, end_year) where None means no limit
+    """
+    start = None
+    end = None
+    
+    if year_arg:
+        if "-" in year_arg:
+            parts = year_arg.split("-")
+            start = int(parts[0])
+            end = int(parts[1])
+        else:
+            start = int(year_arg)
+            end = int(year_arg)
+    else:
+        if start_year is not None:
+            start = start_year
+        if end_year is not None:
+            end = end_year
+    
+    if start is not None and end is not None and start > end:
+        raise ValueError("Start year cannot be greater than end year")
+    
+    return start, end
+
+
+def filter_cycles_by_year(cycles: List[Tuple[int, str]], start_year: Optional[int], end_year: Optional[int]) -> List[int]:
+    """
+    Filter cycles by year range.
+    
+    Args:
+        cycles: List of (cycle, date_str) tuples
+        start_year: Inclusive start year
+        end_year: Inclusive end year
+    
+    Returns:
+        List of cycle numbers within the year range
+    """
+    if start_year is None and end_year is None:
+        return [c for c, _ in cycles]
+    
+    filtered = []
+    for cycle, date_str in cycles:
+        if not date_str or len(date_str) < 4:
+            # No date info, include by default
+            if start_year is None and end_year is None:
+                filtered.append(cycle)
+            continue
+        
+        try:
+            year = int(date_str[:4])
+            if start_year is not None and year < start_year:
+                continue
+            if end_year is not None and year > end_year:
+                continue
+            filtered.append(cycle)
+        except (ValueError, IndexError):
+# If we can't parse the date, include it if no year filter
+            if start_year is None and end_year is None:
+                filtered.append(cycle)
+    
+    return filtered
+
+
+async def fetch_global_index(client: httpx.AsyncClient, start_year: Optional[int] = None, end_year: Optional[int] = None) -> Dict[str, Dict]:
     """Fetch and parse the global index file."""
     global _global_index_cache
     
@@ -132,6 +210,17 @@ async def fetch_global_index(client: httpx.AsyncClient) -> Dict[str, Dict]:
     
     _global_index_cache = parse_global_index(resp.text)
     print(f"Parsed index: found {len(_global_index_cache)} target floats")
+    
+    # Filter by year if specified
+    if start_year is not None or end_year is not None:
+        for wmo in _global_index_cache:
+            _global_index_cache[wmo]["cycles"] = filter_cycles_by_year(
+                _global_index_cache[wmo]["cycles"], start_year, end_year
+            )
+        # Remove floats with no cycles after filtering
+        _global_index_cache = {wmo: data for wmo, data in _global_index_cache.items() if data["cycles"]}
+        print(f"After year filtering: {len(_global_index_cache)} target floats remain")
+    
     return _global_index_cache
 
 
@@ -260,31 +349,29 @@ def interactive_select(float_list: List[Dict]) -> List[Dict]:
     print("ARABIAN SEA ARGO FLOATS - Interactive Selection")
     print("="*70)
     
-    # Separate seed and target floats
-    seed_floats = [f for f in float_list if "[SEED]" in f["name"]]
-    target_floats = [f for f in float_list if "[SEED]" not in f["name"]]
+    # Count floats with data vs not in index
+    floats_in_index = [f for f in float_list if f["in_index"]]
+    floats_not_in_index = [f for f in float_list if not f["in_index"]]
     
-    print(f"Target floats (top 30): {len(target_floats)}")
-    print(f"Seed floats: {len(seed_floats)}")
+    print(f"Floats with data: {len(floats_in_index)}")
+    print(f"Floats without data: {len(floats_not_in_index)}")
     print()
     
-    display_floats = target_floats + seed_floats
+    display_floats = float_list
     
-    for i, f in enumerate(display_floats, 1):
+    for i, f in enumerate(float_list, 1):
         if f["in_index"]:
             cycles = f["cycles"]
-            marker = " [SEED]" if "[SEED]" in f["name"] else ""
-            print(f"  [{i:2d}] {f['wmo']} (DAC: {f['dac']}, {len(cycles)} cycles: {cycles[0]}-{cycles[-1]}) - {f['name']}{marker}")
+            print(f"  [{i:2d}] {f['wmo']} (DAC: {f['dac']}, {len(cycles)} cycles: {cycles[0]}-{cycles[-1]}) - {f['name']}")
         else:
-            print(f"  [{i:2d}] {f['wmo']} (DAC: {f['dac']}) - {f['name']}")
+            print(f"  [{i:2d}] {f['wmo']} (DAC: {f['dac']}) - {f['name']} [NOT IN INDEX]")
     
+    total = len(float_list)
     print("\nOptions:")
-    print("  - Enter numbers separated by commas (e.g., 1,3,5)")
-    print("  - Enter 'all' for all 34 floats (30 target + 4 seed)")
-    print("  - Enter 'target' for top 30 target floats only")
-    print("  - Enter 'seed' for the 4 seed floats only")
-    print("  - Enter 'range' for a range (e.g., 1-5)")
-    print("  - Enter 'q' to quit")
+    print(f"  - Enter numbers separated by commas (e.g., 1,3,5)")
+    print(f"  - Enter 'all' for all {total} floats")
+    print(f"  - Enter 'range' for a range (e.g., 1-5)")
+    print(f"  - Enter 'q' to quit")
     
     while True:
         choice = input("\nSelect floats: ").strip().lower()
@@ -341,16 +428,19 @@ async def run_download(output_dir: Path, selected_floats: List[Dict]):
 
 def main():
     parser = argparse.ArgumentParser(description="Download Argo NetCDF profiles for Arabian Sea floats using global index")
-    parser.add_argument("--output", "-o", type=Path, default=Path("./argo_raw_netcdf"),
-                        help="Output directory (default: ./argo_raw_netcdf)")
+    parser.add_argument("--output", "-o", type=Path, default=Path("../data/raw"),
+                        help="Output directory (default: ../data/raw)")
     parser.add_argument("--float", "-f", type=str, help="WMO ID(s), comma-separated, to download")
     parser.add_argument("--floats-file", type=Path, default=None,
                         help="Float list file (discovery output or WMO,DAC[,NAME] rows); replaces the built-in list")
-    parser.add_argument("--all", "-a", action="store_true", help="Download all 34 floats (30 target + 4 seed)")
-    parser.add_argument("--target", "-t", action="store_true", help="Download top 30 target floats only")
-    parser.add_argument("--seed", "-s", action="store_true", help="Download 4 seed floats only")
+    parser.add_argument("--all", "-a", action="store_true", help="Download all floats from the index")
+    
     parser.add_argument("--list", "-l", action="store_true", help="List available floats from index and exit")
     parser.add_argument("--concurrent", type=int, default=3, help="Max concurrent downloads")
+    parser.add_argument("--year", type=str, help="Year(s) to download (e.g. '2023' or '2020-2023')")
+    parser.add_argument("--start-year", type=int, help="Start year (inclusive)")
+    parser.add_argument("--end-year", type=int, help="End year (inclusive)")
+    parser.add_argument("--skip-existing", action="store_true", default=True, help="Skip already downloaded files (default: True)")
     
     args = parser.parse_args()
     
@@ -363,13 +453,14 @@ def main():
     # Fetch global index
     async def fetch_and_run():
         async with httpx.AsyncClient(timeout=60.0) as client:
-            index_data = await fetch_global_index(client)
+            start_year, end_year = parse_year_args(args.year, args.start_year, args.end_year)
+            index_data = await fetch_global_index(client, start_year, end_year)
 
             # Build float list with our target DACs
             float_list = build_float_list(index_data, source=source)
             
             if args.list:
-                print("\nTop 30 Target Floats + 4 Seed Floats:")
+                print(f"\nAvailable Floats ({len(float_list)} total):")
                 print("="*70)
                 for f in float_list:
                     status = "OK" if f["in_index"] else "MISSING"
@@ -385,10 +476,6 @@ def main():
                 if missing:
                     print(f"Error: Float(s) {missing} not in target list")
                     sys.exit(1)
-            elif args.target:
-                selected = [f for f in float_list if "[SEED]" not in f["name"]]
-            elif args.seed:
-                selected = [f for f in float_list if "[SEED]" in f["name"]]
             elif args.all:
                 selected = float_list
             else:
@@ -401,8 +488,8 @@ def main():
                 else:
                     print(f"  - {f['wmo']} (DAC: {f['dac']}): {f['name']} [NOT IN INDEX - will skip]")
             
-            # Confirm
-            if not args.all and not args.target and not args.seed and not args.float:
+# Confirm
+            if not args.all and not args.float:
                 confirm = input("\nProceed with download? [y/N]: ").strip().lower()
                 if confirm != 'y':
                     print("Cancelled")

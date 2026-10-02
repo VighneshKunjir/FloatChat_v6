@@ -83,6 +83,8 @@ def compute_static_stability(sigma: np.ndarray,
     Compute static gravitational stability ∂σ_θ/∂z.
     
     Physical stability requires ∂σ_θ/∂z ≥ 0 (density increases with depth).
+    Uses forward differences (σ[i+1] - σ[i]) / (z[i+1] - z[i]) to match
+    the physics loss function in training.
     
     Args:
         sigma: Potential density anomaly array (kg/m³)
@@ -90,7 +92,7 @@ def compute_static_stability(sigma: np.ndarray,
     
     Returns:
         (stability_array, is_stable, violation_count)
-        - stability_array: ∂σ/∂z at each level (kg/m⁴)
+        - stability_array: ∂σ/∂z at each level (kg/m⁴) - length N-1 for N levels
         - is_stable: True if no violations
         - violation_count: Number of levels with ∂σ/∂z < -1e-6
     """
@@ -100,9 +102,10 @@ def compute_static_stability(sigma: np.ndarray,
     sigma = np.asarray(sigma, dtype=float)
     depths = np.asarray(depths, dtype=float)
     
-    # Gradient: (σ[i+1] - σ[i]) / (z[i+1] - z[i])
-    d_sigma = np.gradient(sigma)
-    d_depth = np.gradient(depths)
+    # Forward differences: (σ[i+1] - σ[i]) / (z[i+1] - z[i])
+    # This matches the physics loss computation exactly
+    d_sigma = sigma[1:] - sigma[:-1]  # (N-1,)
+    d_depth = depths[1:] - depths[:-1]  # (N-1,)
     
     # Avoid division by zero
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -133,6 +136,7 @@ def compute_brunt_vaisala(sigma: np.ndarray,
     
     Returns:
         N² array (s⁻²), with negative values clipped to 0
+        Length N-1 for N input levels (mid-point depths)
     """
     stability, _, _ = compute_static_stability(sigma, depths)
     N2 = (g / rho0) * stability / 1000.0  # Convert kg/m⁴ to kg/m³ per m

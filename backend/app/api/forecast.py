@@ -55,22 +55,39 @@ def load_model_and_preprocessor():
     """Load model and preprocessor artifacts."""
     global model, preprocessor, criterion
     
-    artifacts_dir = Path(__file__).parent.parent.parent / "ml" / "artifacts"
+    # Artifacts are in backend/app/ml/artifacts relative to project root
+    # __file__ is backend/app/api/forecast.py
+    # Go up 3 levels to project root, then into backend/app/ml/artifacts
+    artifacts_dir = Path(__file__).parent.parent.parent / "app" / "ml" / "artifacts"
     
-    if not (Path("backend/app/ml/artifacts/model_weights.pt").exists()):
+    model_path = artifacts_dir / "model_weights.pt"
+    preprocessor_path = artifacts_dir / "preprocessor.joblib"
+    
+    if not model_path.exists() or not preprocessor_path.exists():
+        print(f"DEBUG: Model path exists: {model_path.exists()}, Preprocessor path exists: {preprocessor_path.exists()}")
         return False
     
-    pre = joblib.load("backend/app/ml/artifacts/preprocessor.joblib")
-    model = PhysicsInformedBiLSTM()
-    model.load_state_dict(torch.load("backend/app/ml/artifacts/model_weights.pt", map_location="cpu"))
-    model.eval()
-    criterion = PhysicsConstrainedLoss(
-        temp_mean=pre['temp_scaler'].mean_,
-        temp_std=pre['temp_scaler'].scale_,
-        sal_mean=pre['sal_scaler'].mean_,
-        sal_std=pre['sal_scaler'].scale_,
-    ).to("cpu")
-    return True
+    try:
+        global preprocessor, model, criterion
+        print("DEBUG: Loading preprocessor...")
+        preprocessor = joblib.load(preprocessor_path)
+        print(f"DEBUG: Preprocessor loaded, keys: {list(preprocessor.keys())}")
+        model = PhysicsInformedBiLSTM()
+        model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        model.eval()
+        criterion = PhysicsConstrainedLoss(
+            temp_mean=preprocessor['temp_scaler'].mean_,
+            temp_std=preprocessor['temp_scaler'].scale_,
+            sal_mean=preprocessor['sal_scaler'].mean_,
+            sal_std=preprocessor['sal_scaler'].scale_,
+        ).to("cpu")
+        print("DEBUG: Model and criterion loaded successfully")
+        return True
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 def get_db() -> Session:
@@ -158,9 +175,8 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
         # Prepare input tensor
         input_array = np.array([input_data], dtype=np.float32)  # (1, 3, 32)
         
-        # Scale input
-        pre = joblib.load("backend/app/ml/artifacts/preprocessor.joblib")
-        ts, ss = pre['temp_scaler'], pre['sal_scaler']
+        # Scale input using global preprocessor
+        ts, ss = preprocessor['temp_scaler'], preprocessor['sal_scaler']
         
         input_scaled = input_array.copy()
         input_scaled[0, :, :16] = ts.transform(input_array[0, :, :16].reshape(-1, 16)).reshape(3, 16)
@@ -198,8 +214,8 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
         from app.core.evidence import get_evidence_links
         from app.ml.baselines import persistence_predict, train_gradient_boosting, predict_gradient_boosting
         
-        pre = joblib.load("backend/app/ml/artifacts/preprocessor.joblib")
-        bounds, _ = run_mc_dropout_inference(model, input_tensor, pre['temp_scaler'], pre['sal_scaler'])
+        # Use already loaded global preprocessor
+        bounds, _ = run_mc_dropout_inference(model, input_tensor, preprocessor['temp_scaler'], preprocessor['sal_scaler'])
         
         # XAI Attribution
         xai_result = compute_xai_attribution(model, input_tensor, target_variable='temp', target_depth_idx=4)
@@ -224,11 +240,11 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
                 "gradient_boosting_salinity": 0.0,  # Placeholder
             })
         
-        # Uncertainty bounds
+# Uncertainty bounds
         from app.core.uq import uncertainty_bounds_to_dict
         bounds, _ = run_mc_dropout_inference(model, input_tensor, 
-                                               joblib.load("backend/app/ml/artifacts/preprocessor.joblib")['temp_scaler'],
-                                               joblib.load("backend/app/ml/artifacts/preprocessor.joblib")['sal_scaler'])
+                                               preprocessor['temp_scaler'],
+                                               preprocessor['sal_scaler'])
         uncertainty_bounds = uncertainty_bounds_to_dict(bounds)
         
         # Evidence citations

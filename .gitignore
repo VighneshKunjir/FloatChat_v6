@@ -6,6 +6,7 @@ coverage/
 /backend/data/floatchat.db
 /backend/data/*.db
 /backend/data/*.sqlite
+/backend/data/*.txt
 .DS_Store
 *.log
 .env*
@@ -14,3 +15,4 @@ __pycache__/
 *.pyc
 arabian_sea_top60_floats.txt
 .playwright-mcp/
+.playwright-cli/

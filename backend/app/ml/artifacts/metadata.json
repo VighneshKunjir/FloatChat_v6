@@ -1,6 +1,6 @@
 {
   "model_version": "v1.2.0-bilstm-teos10",
-  "training_date": "2026-09-24",
+  "training_date": "2026-09-30",
   "dataset_hash": "sha256_79768d33cd7b",
   "device": "cpu",
   "split": "stratified-domain float-level (arctic vs arabian), seed 42",
@@ -64,10 +64,10 @@
     2902206,
     6903007
   ],
-  "validation_rmse_temp": 0.6355,
-  "test_rmse_temp": 0.5141,
-  "test_rmse_sal": 0.1062,
-  "test_thermocline_rmse": 0.7939,
-  "test_inversion_rate": 0.00299,
-  "elapsed_s": 208.4
+  "validation_rmse_temp": 0.6409,
+  "test_rmse_temp": 0.5127,
+  "test_rmse_sal": 0.1065,
+  "test_thermocline_rmse": 0.8035,
+  "test_inversion_rate": 0.01595,
+  "elapsed_s": 229.0
 }
