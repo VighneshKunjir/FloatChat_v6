@@ -117,6 +117,8 @@ export interface ForecastResult {
     persistence_salinity: number;
     gradient_boosting_temperature: number;
     gradient_boosting_salinity: number;
+    actual_temperature?: number;
+    actual_salinity?: number;
   }[];
   uncertainty_bounds: UncertaintyBound[];
   physical_diagnostics: PhysicalDiagnostics;
@@ -130,6 +132,7 @@ export interface ForecastResult {
     deep_rmse: number;
     physical_violation_rate: number;
   }[];
+  epistemic_uq_coverage?: number;
 }
 
 export interface ChatMessage {
