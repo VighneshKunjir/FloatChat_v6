@@ -217,9 +217,6 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
         # Use already loaded global preprocessor
         bounds, _ = run_mc_dropout_inference(model, input_tensor, preprocessor['temp_scaler'], preprocessor['sal_scaler'])
         
-        # XAI Attribution
-        xai_result = compute_xai_attribution(model, input_tensor, target_variable='temp', target_depth_idx=4)
-        
         # Evidence links
         db_session = get_db()
         evidence = get_evidence_links(wmoId, cycle, db_session)
@@ -295,8 +292,8 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
                 "measurements": measurements
             })
         
-        # XAI attribution
-        xai_result = compute_xai_attribution(model, input_tensor, target_variable='temp', target_depth_idx=4)
+        # XAI attribution (compute once, use dynamic result)
+        xai_result = compute_xai_attribution(model, input_tensor, target_variable='temp', target_depth_idx=4, input_cycles=list(input_cycles))
         xai_dict = {
             "temporal_attribution": xai_result["temporal_attribution"],
             "depth_attribution_matrix": xai_result["depth_attribution_matrix"],
@@ -335,7 +332,8 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
             }
         ]
         
-        # Build response
+# Build response using DYNAMIC XAI results
+
         response = {
             "forecast_id": f"FC_XRAG_{wmoId}_C{cycle}_{int(datetime.now().timestamp() * 1000)}",
             "target_float_id": wmoId,
@@ -362,40 +360,7 @@ async def run_forecast(request: dict, background_tasks: BackgroundTasks):
                     {"depth_dbar": 100, "sigma_theta": 25.14, "buoyancy_frequency_n2": 2.14e-4}
                 ]
             },
-            "xai_attribution": {
-                "temporal_attribution": [
-                    {
-                        "cycle_offset": -1,
-                        "cycle_label": f"Cycle t-1 (Cycle {cycle})",
-                        "importance_score": 0.58,
-                        "interpretation": "Immediate upstream profile dominates pycnocline and mixed-layer boundary conditions."
-                    },
-                    {
-                        "cycle_offset": -2,
-                        "cycle_label": f"Cycle t-2 (Cycle {cycle-1})",
-                        "importance_score": 0.27,
-                        "interpretation": "Medium-term thermal advection provides mesoscale eddy drift momentum."
-                    },
-                    {
-                        "cycle_offset": -3,
-                        "cycle_label": f"Cycle t-3 (Cycle {cycle-2})",
-                        "importance_score": 0.15,
-                        "interpretation": "Baseline seasonal stratification trend in the Arabian Sea upper 500 dbar."
-                    }
-                ],
-                "depth_attribution_matrix": [
-                    {"input_depth": 20, "output_depth": 20, "saliency_weight": 0.88},
-                    {"input_depth": 20, "output_depth": 75, "saliency_weight": 0.64}
-                ],
-                "key_depth_influences": [
-                    {
-                        "target_zone": "Thermocline (75 - 150 dbar)",
-                        "dominant_input_depth": "Surface to 50 dbar heat flux + 100 dbar shear",
-                        "attribution_percentage": 68.4,
-                        "scientific_driver": "Surface solar irradiance and wind stress penetration control thermocline shoaling."
-                    }
-                ]
-            },
+            "xai_attribution": xai_dict,
             "evidence_citations": evidence_citations,
             "metrics_comparison": metrics_comparison
         }

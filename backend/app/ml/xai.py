@@ -166,6 +166,7 @@ def compute_integrated_gradients(
 def compute_temporal_attribution(
     attributions: np.ndarray,
     target_variable: str = "temp",
+    input_cycles: Optional[List[int]] = None,
 ) -> List[Dict]:
     """
     Aggregate attributions across feature dimensions for each cycle offset.
@@ -173,6 +174,7 @@ def compute_temporal_attribution(
     Args:
         attributions: Shape (batch, 3, 32) - (batch, cycles, features)
         target_variable: "temp" or "sal"
+        input_cycles: Optional list of actual cycle numbers [t-3, t-2, t-1]
     
     Returns:
         List of dicts with temporal attribution per cycle
@@ -195,12 +197,18 @@ def compute_temporal_attribution(
     
     # Build result
     results = []
-    cycle_labels = ["Cycle t-3 (30 days ago)", "Cycle t-2 (20 days ago)", "Cycle t-1 (10 days ago)"]
     
-    for i, (label, score) in enumerate(zip(cycle_labels, cycle_importance)):
+    for i, score in enumerate(cycle_importance):
+        cycle_offset = -(3 - i)
+        if input_cycles and i < len(input_cycles):
+            cycle_label = f"Cycle t{cycle_offset} (Cycle {input_cycles[i]})"
+        else:
+            cycle_labels = ["Cycle t-3 (30 days ago)", "Cycle t-2 (20 days ago)", "Cycle t-1 (10 days ago)"]
+            cycle_label = cycle_labels[i]
+        
         results.append({
-            "cycle_offset": -(3 - i),
-            "cycle_label": label,
+            "cycle_offset": cycle_offset,
+            "cycle_label": cycle_label,
             "importance_score": float(score),
             "interpretation": f"Cycle {3-i} contributes {score*100:.1f}% to {target_variable} prediction at target depth."
         })
@@ -301,6 +309,7 @@ def compute_xai_attribution(
     target_depth_idx: int = 4,
     baseline_tensor: Optional[torch.Tensor] = None,
     n_steps: int = 50,
+    input_cycles: Optional[List[int]] = None,
 ) -> Dict:
     """
     Main entry point for XAI attribution.
@@ -321,7 +330,7 @@ def compute_xai_attribution(
     )
     
     # Temporal attribution
-    temporal = compute_temporal_attribution(attributions, target_variable)
+    temporal = compute_temporal_attribution(attributions, target_variable, input_cycles)
     
     # Depth attribution matrix
     depth_matrix = compute_depth_attribution_matrix(attributions, target_variable)

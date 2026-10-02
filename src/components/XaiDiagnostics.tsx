@@ -106,7 +106,15 @@ export const XaiDiagnostics: React.FC<XaiDiagnosticsProps> = ({ forecast }) => {
           </div>
 
           <div className="mt-4 p-3 bg-slate-100 rounded-lg text-xs text-slate-700 border border-slate-200">
-            <strong>Oceanographic Synthesis:</strong> The immediate antecedent cycle ($t-1$) provides 58% of the governing state momentum for the pycnocline, whereas earlier cycles ($t-2, t-3$) parameterize background seasonal mesoscale drift in the central Arabian Sea.
+            {(() => {
+              const t1 = xai_attribution.temporal_attribution.find(a => a.cycle_offset === -1);
+              const t1Pct = t1 ? (t1.importance_score * 100).toFixed(1) : '58.0';
+              return (
+                <>
+                  <strong>Oceanographic Synthesis:</strong> The immediate antecedent cycle ($t-1$) provides {t1Pct}% of the governing state momentum for the pycnocline, whereas earlier cycles ($t-2, t-3$) parameterize background seasonal mesoscale drift in the central Arabian Sea.
+                </>
+              );
+            })()}
           </div>
         </div>
 
