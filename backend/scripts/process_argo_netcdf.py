@@ -60,7 +60,8 @@ def mask_sentinels(arr: np.ndarray) -> np.ndarray:
 def interp_to_standard_depths(pres: np.ndarray, temp: np.ndarray, sal: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     Interpolate T/S from irregular pressure levels to 16 standard depths using PCHIP.
-    PCHIP preserves monotonicity (no overshoots).
+    PCHIP preserves monotonicity (no overshoots). No extrapolation - fill beyond data
+    range with nearest boundary value.
     """
     # Remove NaN values
     valid = ~(np.isnan(pres) | np.isnan(temp) | np.isnan(sal))
@@ -81,13 +82,21 @@ def interp_to_standard_depths(pres: np.ndarray, temp: np.ndarray, sal: np.ndarra
         return np.full(16, np.nan), np.full(16, np.nan)
     
     try:
-        # PCHIP interpolation
-        temp_interp = PchipInterpolator(pres, temp)(STANDARD_DEPTHS)
-        sal_interp = PchipInterpolator(pres, sal)(STANDARD_DEPTHS)
+        # PCHIP interpolation WITHOUT extrapolation
+        # Only interpolate within the data range [pres.min(), pres.max()]
+        # For depths outside, fill with nearest boundary value
+        temp_interp = PchipInterpolator(pres, temp, extrapolate=False)(STANDARD_DEPTHS)
+        sal_interp = PchipInterpolator(pres, sal, extrapolate=False)(STANDARD_DEPTHS)
         
-        # Extrapolation: fill with nearest valid value
-        temp_interp = np.where(np.isnan(temp_interp), np.nan, temp_interp)
-        sal_interp = np.where(np.isnan(sal_interp), np.nan, sal_interp)
+        # Fill NaN (depths outside data range) with nearest boundary value
+        # Forward fill then backward fill
+        for arr in (temp_interp, sal_interp):
+            # Forward fill
+            mask = np.isnan(arr)
+            if mask.any():
+                idx = np.where(~mask)[0]
+                if len(idx) > 0:
+                    arr[mask] = np.interp(np.where(mask)[0], idx, arr[idx])
         
         return temp_interp, sal_interp
     except Exception:
