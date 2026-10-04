@@ -18,3 +18,4 @@ arabian_sea_top60_floats.txt
 .playwright-cli/
 *.png
 venv/
+graphify-out/
