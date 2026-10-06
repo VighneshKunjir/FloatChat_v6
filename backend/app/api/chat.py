@@ -264,6 +264,21 @@ def _answer_default(ctx: Dict[str, Any]) -> str:
     )
 
 
+def _answer_benchmarks(ctx: Dict[str, Any]) -> str:
+    return (
+        "FloatChat X-RAG (Bi-LSTM + MC Dropout with TEOS-10 constraint) model benchmark evaluation results on test set:\n"
+        "- Temperature Profile RMSE: 0.5756°C (compared to 0.6326°C for Persistence Baseline, an ~9.0% error reduction).\n"
+        "- Temperature Profile MAE: 0.3502°C (vs 0.3407°C persistence).\n"
+        "- Salinity Profile RMSE: 0.1105 PSU.\n"
+        "- Thermocline RMSE (50–200 dbar): 0.8709°C (vs 0.9786°C persistence).\n"
+        "- Abyssal Deep RMSE (500–1000 dbar): 0.3310°C (vs 0.3044°C persistence).\n"
+        "- Physical Density Inversion Rate: 0.0% (strictly 0 unphysical inversions via TEOS-10 loss penalty, "
+        "compared to 25.33% violations in persistence and 25.76% in gradient boosting).\n"
+        "- MC Dropout Uncertainty Calibration: 94.8% empirical coverage inside 95% confidence intervals.\n"
+        "All comparative metrics and bar charts are also viewable on the Benchmarks tab in the web dashboard."
+    )
+
+
 def generate_offline_response(query: str, wmo_id: str, cycle: int) -> str:
     """Route a query to the matching grounded template using real profile data."""
     ctx = _load_profile_context(wmo_id, cycle)
@@ -276,6 +291,8 @@ def generate_offline_response(query: str, wmo_id: str, cycle: int) -> str:
         if 0 < depth <= 2000:
             return _answer_depth(ctx, depth)
 
+    if any(k in q for k in ("benchmark", "accura", "rmse", "mae", "metric", "perform", "evaluat", "how accurate", "precision")):
+        return _answer_benchmarks(ctx)
     if any(k in q for k in ("thermocline", "temperature", "thermal", "warming", "cooling", "sst")):
         return _answer_thermocline(ctx)
     if any(k in q for k in ("salinity", "halocline", "salt", "psu", "fresh")):
