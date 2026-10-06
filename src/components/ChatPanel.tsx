@@ -226,18 +226,43 @@ What oceanographic query would you like to explore regarding **Float ${forecast.
                   </Markdown>
                 </div>
 
-                {/* Cited floats tags */}
+                {/* Cited floats tags - interactive badges with target/evidence distinction */}
                 {isAssistant && msg.cited_floats && msg.cited_floats.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[10px]">
                     <span className="text-slate-400 font-medium">Citations:</span>
-                    {Array.from(new Set(msg.cited_floats)).map((fid, fIdx) => (
-                      <span
-                        key={`${msg.id}-cite-${fid}-${fIdx}`}
-                        className="bg-white border border-slate-300 text-slate-700 font-mono px-1.5 py-0.5 rounded shadow-2xs"
-                      >
-                        WMO #{fid}
-                      </span>
-                    ))}
+                    {Array.from(new Set(msg.cited_floats)).map((fid, fIdx) => {
+                      const isTarget = fid === forecast.target_float_id;
+                      return (
+                        <button
+                          key={`${msg.id}-cite-${fid}-${fIdx}`}
+                          type="button"
+                          onClick={() => {
+                            if (onNavigateToEvidence) {
+                              onNavigateToEvidence();
+                            }
+                          }}
+                          title={
+                            isTarget
+                              ? `Target Float WMO #${fid} (Current forecast trajectory)`
+                              : `Analogous Evidence Float WMO #${fid} (Click to inspect NetCDF lineage in Evidence Link Protocol)`
+                          }
+                          className={`font-mono px-2 py-0.5 rounded-md shadow-2xs border text-[10px] transition-all flex items-center gap-1 cursor-pointer ${
+                            isTarget
+                              ? 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100 hover:border-cyan-400'
+                              : 'bg-white border-slate-300 text-slate-700 hover:border-cyan-500 hover:text-cyan-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span>WMO #{fid}</span>
+                          <span
+                            className={`text-[8.5px] font-sans px-1 py-0.2 rounded font-medium ${
+                              isTarget ? 'bg-cyan-200/80 text-cyan-900' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {isTarget ? 'Target' : 'Evidence'}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
