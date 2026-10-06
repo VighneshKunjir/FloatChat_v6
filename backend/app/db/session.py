@@ -10,10 +10,26 @@ from app.models.schema import Base
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_DB_PATH = os.path.join(BACKEND_DIR, "data", "floatchat.db")
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    f"sqlite:///{DEFAULT_DB_PATH}"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    DATABASE_URL = f"sqlite:///{DEFAULT_DB_PATH}"
+elif DATABASE_URL.startswith("sqlite:///"):
+    db_file_path = DATABASE_URL[len("sqlite:///"):]
+    # If the relative path does not exist from current working directory, resolve against root or backend
+    if not os.path.isabs(db_file_path) and not os.path.exists(db_file_path):
+        workspace_root = os.path.dirname(BACKEND_DIR)
+        candidate_root = os.path.normpath(os.path.join(workspace_root, db_file_path))
+        clean_rel = db_file_path.lstrip("./").lstrip(".\\")
+        if clean_rel.startswith("backend/") or clean_rel.startswith("backend\\"):
+            clean_rel = clean_rel[8:]
+        candidate_backend = os.path.normpath(os.path.join(BACKEND_DIR, clean_rel))
+
+        if os.path.exists(candidate_root):
+            DATABASE_URL = f"sqlite:///{candidate_root}"
+        elif os.path.exists(candidate_backend):
+            DATABASE_URL = f"sqlite:///{candidate_backend}"
+        elif os.path.exists(DEFAULT_DB_PATH):
+            DATABASE_URL = f"sqlite:///{DEFAULT_DB_PATH}"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(

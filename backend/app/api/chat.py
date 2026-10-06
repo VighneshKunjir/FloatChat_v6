@@ -297,24 +297,68 @@ def _try_gemini_response(query: str, wmo_id: str, cycle: int, offline_text: str)
     """Attempt a Gemini-grounded answer; return None on any failure (offline fallback)."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
+        from pathlib import Path
+        from dotenv import load_dotenv
+
+        root_env = Path(__file__).resolve().parents[3] / ".env"
+        if root_env.exists():
+            load_dotenv(dotenv_path=root_env)
+        else:
+            load_dotenv()
+        api_key = os.environ.get("GEMINI_API_KEY")
+
+    if not api_key:
+        print("[FloatChat Gemini] GEMINI_API_KEY not found in environment. Using analytical engine fallback.")
         return None
+
     try:
         from google import genai  # type: ignore
 
         client = genai.Client(api_key=api_key)
         prompt = (
-            "You are FloatChat, an oceanographic assistant. Answer strictly from the "
-            f"grounded context below. Float {wmo_id} cycle {cycle}.\n\n"
-            f"Grounded context:\n{offline_text}\n\nQuestion: {query}\n\n"
-            "Use LaTeX ($...$) for equations. Cite float/cycle identifiers."
+            "You are FloatChat, an expert AI oceanographic assistant specialized in the Arabian Sea and Indian Ocean. "
+            "Answer the user query accurately, conversationally, and concisely, strictly grounded in the verified Argo profile context below.\n\n"
+            f"Float WMO ID: {wmo_id}\n"
+            f"Cycle Number: {cycle}\n\n"
+            f"Grounded Context & Profile Diagnostics:\n{offline_text}\n\n"
+            f"User Question: {query}\n\n"
+            "Scientific Guidelines:\n"
+            "- Always use LaTeX ($...$) for formulas, physical parameters, variables (e.g., $T$, $S$, $\\sigma_\\theta$, $N^2$, $\\frac{\\partial\\sigma_\\theta}{\\partial z}$), and depth units ($100\\text{ dbar}$, $^{\\circ}\\text{C}$, $\\text{PSU}$).\n"
+            "- Explicitly reference Float {wmo_id} and Cycle {cycle} in your answer.\n"
+            "- Maintain scientific rigor and explain physical mechanisms where relevant (e.g. thermocline barrier layers, TEOS-10 static stability).\n"
+            "- Do not invent ungrounded data."
         )
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
-        text = getattr(response, "text", None)
-        return text.strip() if text and text.strip() else None
-    except Exception:
+
+        preferred_model = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+        candidate_models = [
+            preferred_model,
+            "gemini-3.5-flash",
+            "gemini-3.8-flash",
+            "gemini-flash-lite-latest",
+            "gemini-3.1-flash-lite",
+        ]
+        # Preserve order while deduplicating
+        seen = set()
+        models_to_try = [m for m in candidate_models if not (m in seen or seen.add(m))]
+
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                text = getattr(response, "text", None)
+                if text and text.strip():
+                    print(f"[FloatChat Gemini] Response generated successfully using model: {model_name}")
+                    return text.strip()
+            except Exception as model_err:
+                print(f"[FloatChat Gemini] Model '{model_name}' attempt failed: {model_err}")
+                continue
+
+        print("[FloatChat Gemini] All candidate models failed. Falling back to analytical engine.")
+        return None
+    except Exception as e:
+        print(f"[FloatChat Gemini] Unexpected exception during Gemini generation: {e}")
         return None
 
 
@@ -353,13 +397,16 @@ def generate_chat_response(query: str, wmo_id: str, cycle: int) -> dict:
     analytical synthesis engine grounded in real database profiles.
     """
     offline_text = generate_offline_response(query, wmo_id, cycle)
-    text = _try_gemini_response(query, wmo_id, cycle, offline_text) or offline_text
+    gemini_text = _try_gemini_response(query, wmo_id, cycle, offline_text)
+    is_gemini = gemini_text is not None
+    text = gemini_text if is_gemini else offline_text
     ctx = _load_profile_context(wmo_id, cycle)
 
     return {
         "text": text,
         "citations": _build_citations(wmo_id, cycle, ctx),
         "verified": True,
+        "source": "gemini" if is_gemini else "analytical_fallback",
         "forecast_context": {
             "wmo_id": wmo_id,
             "target_cycle": cycle,

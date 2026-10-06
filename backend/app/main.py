@@ -1,4 +1,13 @@
-"""FloatChat FastAPI Application."""
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file from workspace root or backend directory
+root_env = Path(__file__).resolve().parents[2] / ".env"
+if root_env.exists():
+    load_dotenv(dotenv_path=root_env)
+else:
+    load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
