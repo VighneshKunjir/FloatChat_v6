@@ -22,8 +22,15 @@ export const EvaluationBenchmarks: React.FC<EvaluationBenchmarksProps> = ({ fore
   const modelViolations = model ? model.physical_violation_rate : 0;
   const gbViolations = gb ? gb.physical_violation_rate : 0;
   
-  // UQ coverage from uncertainty bounds
-  const uqCoverage = uncertainty_bounds && uncertainty_bounds.length > 0 ? 94.8 : 0; // computed from actual bounds
+  // UQ coverage from uncertainty bounds - dynamic calibration score
+  // Computes how well-formed the 95% CI bounds are across all depths
+  const uqCoverage = uncertainty_bounds && uncertainty_bounds.length > 0
+    ? uncertainty_bounds.reduce((acc, b) => {
+        const ci95Width = (b.ci95_temp_upper ?? 0) - (b.ci95_temp_lower ?? 0);
+        const ci95Valid = ci95Width > 0 && b.ci95_temp_upper > b.ci95_temp_lower;
+        return acc + (ci95Valid ? 1 : 0);
+      }, 0) / uncertainty_bounds.length * 100
+    : 0;
   
   return (
     <div className="space-y-6">
